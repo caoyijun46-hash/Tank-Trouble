@@ -47,8 +47,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AimLinePreview
   firePoint: {fileID: 7062099538363450800}
   line: {fileID: 1253638407043049978}
-  maxBounces: 5
-  maxDistance: 100
+  config: {fileID: 0}
   obstacleMask:
     serializedVersion: 2
     m_Bits: 183
@@ -476,9 +475,9 @@ GameObject:
   - component: {fileID: 5714750667851795468}
   - component: {fileID: 2001178964048385858}
   - component: {fileID: 5916679474560828559}
-  - component: {fileID: 5715327554045179523}
+  - component: {fileID: 360324245173204555}
   m_Layer: 0
-  m_Name: Tank
+  m_Name: Enemy
   m_TagString: Tank
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -552,7 +551,7 @@ Rigidbody:
   m_Interpolate: 1
   m_Constraints: 80
   m_CollisionDetection: 1
---- !u!114 &5715327554045179523
+--- !u!114 &360324245173204555
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -561,83 +560,23 @@ MonoBehaviour:
   m_GameObject: {fileID: 8502888892767159392}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1f98e438e24d7c04db7d0b6f1d03157f, type: 3}
+  m_Script: {fileID: 11500000, guid: 893530c84e15ad3429a9260d771b2edf, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Tank
-  status: 3
-  bulletPrefab: {fileID: 5420566782939206507, guid: 55d7fb1ed91b10941b0d864ac3d4bd78, type: 3}
-  laserPrefab: {fileID: 839420172273132283, guid: 2cbfd6226b2b7084dbb109bcb402a49f, type: 3}
-  missilePrefab: {fileID: 1286159369651521980, guid: 6460857c5aee83347995bd77d121891d, type: 3}
-  firePoint: {fileID: 7062099538363450800}
+  m_EditorClassIdentifier: Assembly-CSharp::TankAI
+  status: 0
+  bulletPrefab: {fileID: 0}
+  laserPrefab: {fileID: 0}
+  missilePrefab: {fileID: 0}
+  firePoint: {fileID: 0}
   maxBullets: 5
   coolDown: 0.5
   moveSpeed: 20
   rotateSpeed: 120
-  moveAction:
-    m_Name: Move
-    m_Type: 0
-    m_ExpectedControlType: 
-    m_Id: ff37cf96-8d80-4a62-a64f-50ebf2564444
-    m_Processors: 
-    m_Interactions: 
-    m_SingletonActionBindings:
-    - m_Name: 2D Vector
-      m_Id: a80bdd7d-d7ae-4a02-b825-f61df55c8ed0
-      m_Path: 2DVector
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Move
-      m_Flags: 4
-    - m_Name: up
-      m_Id: 52808a93-bd9b-4a9e-ae6b-86918ebb4fac
-      m_Path: <Keyboard>/w
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Move
-      m_Flags: 8
-    - m_Name: down
-      m_Id: affe6005-8042-413e-94ba-2ec43937852a
-      m_Path: <Keyboard>/s
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Move
-      m_Flags: 8
-    - m_Name: left
-      m_Id: 2f2faa68-0a05-4c13-a7fc-b30ecbedcaed
-      m_Path: <Keyboard>/a
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Move
-      m_Flags: 8
-    - m_Name: right
-      m_Id: b7fd6d7b-6862-45dd-b519-a854a2991d4b
-      m_Path: <Keyboard>/d
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Move
-      m_Flags: 8
-    m_Flags: 0
-    m_Priority: 0
-  fireAction:
-    m_Name: Fire
-    m_Type: 0
-    m_ExpectedControlType: 
-    m_Id: 9c5e0470-daff-4bb7-a036-fb767fbf5d42
-    m_Processors: 
-    m_Interactions: 
-    m_SingletonActionBindings:
-    - m_Name: 
-      m_Id: 5d29f757-83be-44a4-8a35-676c10c53e76
-      m_Path: <Keyboard>/space
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Fire
-      m_Flags: 0
-    m_Flags: 0
-    m_Priority: 0
+  decideInterval: 0.1
+  angleStep: 1
+  aimThreshold: 3
+  fireCooldown: 0.5
+  config: {fileID: 0}
+  obstacleMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
