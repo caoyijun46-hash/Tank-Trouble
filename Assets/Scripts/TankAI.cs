@@ -39,6 +39,7 @@ public class TankAI : TankBase
     private Vector3 lastPos;
     private float stuckTimer;
     private bool isStuck;
+    private float backingTimer; // 倒车状态计时：倒车期间不计 stuck，结束后自动恢复
 
     // 角度枚举复用缓存，避免每秒数千次 PathResult 分配
     private readonly PathResult reuse = new PathResult();
@@ -71,26 +72,44 @@ public class TankAI : TankBase
     void FixedUpdate()
     {
         Execute();
+        UpdateStuckState();
+        Move(); // TankBase 物理移动（moveInput 由 Execute 设置）
+    }
+
+    // 卡住状态机：Normal → Stuck（0.3s 无有效前进）→ Backing（倒车 0.5s）→ Normal。
+    // 倒车是独立状态：期间不计 stuck（否则倒车让前进 progress 恒为负，stuck 永不解除 → 一直退）
+    void UpdateStuckState()
+    {
+        if (backingTimer > 0f)
+        {
+            backingTimer -= Time.fixedDeltaTime;
+            moveInput.x = 0f;
+            moveInput.y = -0.5f; // 倒车（半速后退）
+            return;
+        }
+
         CheckStuck();
 
         if (isStuck)
         {
-            // 卡住（顶墙）：强制倒车脱困——位置开始移动后自动解除
+            backingTimer = 0.5f; // 顶墙：进入倒车
+            stuckTimer = 0f;     // 清零：倒车结束后从零重新检测——
+            // 否则倒车期间 stuckTimer 保持 0.3+，结束瞬间立即重新 stuck → 无限倒车
             moveInput.x = 0f;
-            moveInput.y = -1f;
+            moveInput.y = -0.5f;
         }
-
-        Move(); // TankBase 物理移动（moveInput 由 Execute 设置）
     }
 
-    // 卡住检测：有移动输入但位置几乎不动 → 顶墙。
-    // 没有它 AI 会一直顶墙（物理静止但 AI 不知道），表现为"卡墙"
+    // 卡住检测：有前进输入但"有效前进"不足 → 顶墙。
+    // 有效前进 = 沿坦克当前朝向的净位移（点积投影）——顶墙时 box 角滑动/旋转的
+    // 横向位移不算有效前进（位置在动但没朝目标走），位置不动式检测会被它骗过
     void CheckStuck()
     {
-        if (moveInput.y > 0.1f || moveInput.x != 0f)
+        if (moveInput.y > 0.1f)
         {
-            float moved = Vector3.Distance(transform.position, lastPos);
-            if (moved < 0.02f)
+            Vector3 delta = transform.position - lastPos;
+            float progress = Vector3.Dot(delta, transform.forward);
+            if (progress < 0.02f)
             {
                 stuckTimer += Time.fixedDeltaTime;
             }
@@ -226,10 +245,11 @@ public class TankAI : TankBase
                     threatDir.y = 0f;
                     threatHitPoint = r.points[r.points.Count - 1];
                     threatArriveTime = arriveTime;
-                    // 轨迹线到中心的距离（叉积 = 点到直线距离），而非命中点到中心距离：
-                    // 侧面正对中心的射击，命中点离中心远（半宽处）但直线穿过中心——后者会漏判穿心
+                    // 轨迹线到中心的距离（2D 叉积 = XZ 平面点到直线距离），而非命中点到中心距离：
+                    // 侧面正对中心的射击，命中点离中心远（半宽处）但直线穿过中心——后者会漏判穿心。
+                    // 用 2D 叉积（仅 y 分量）：3D 叉积会带入命中点与中心的 y 差（子弹飞行高度 vs 坦克中心）
                     Vector3 toCenter = threatHitPoint - transform.position;
-                    float lineDist = Vector3.Cross(threatDir, toCenter).magnitude;
+                    float lineDist = Mathf.Abs(threatDir.x * toCenter.z - threatDir.z * toCenter.x);
                     threatIsHigh = lineDist < threatHighThreshold;
                     found = true;
                 }
@@ -442,33 +462,81 @@ public class TankAI : TankBase
 
     // 移动躲避（高威胁：穿心命中，旋转躲不开）：
     // 朝子弹轨迹的垂直方向移动，方向用网格查询选侧（体积感知），转弯时减速
+    // 移动躲避：向"脱离炮弹路径路程最小且可达"的方向移动；脱离危险区即停。
+    // 危险区 = 炮弹路径线 ± 半宽（坦克半对角 + 炮弹半径）——坦克中心移出即安全
     void ExecuteDodgeMove()
     {
-        // 垂直方向 = 轨迹方向转 ±90°
-        Vector3 perp = Quaternion.Euler(0f, 90f, 0f) * threatDir.normalized;
         GridMap grid = GridMap.Instance;
+        float halfDiag = Mathf.Sqrt(TankHalfExtents.x * TankHalfExtents.x
+                                   + TankHalfExtents.y * TankHalfExtents.y);
+        float dangerHalf = halfDiag + config.bulletRadius + 0.2f;
 
-        // 方向选侧：网格查询（3 格距离 + 坦克体积），而非近距离点 Raycast——
-        // 点检测看不到 2 单位外的墙（坦克半宽就 1.5），且不感知体积
+        // 当前坦克中心到炮弹路径线的距离（2D 点到直线）
+        Vector3 toLine = transform.position - threatHitPoint;
+        float lineDistNow = Mathf.Abs(threatDir.x * toLine.z - threatDir.z * toLine.x);
+
+        // 已脱离危险区：停（下个决策周期恢复）
+        if (lineDistNow >= dangerHalf)
+        {
+            moveInput.x = 0f;
+            moveInput.y = 0f;
+            return;
+        }
+
+        // 远离侧 = 路径线的横向分量方向（从路径线指向坦克，垂直于路径线）
+        Vector3 toCenter = transform.position - threatHitPoint;
+        Vector3 h = toCenter - threatDir * Vector3.Dot(threatDir, toCenter);
+        Vector3 perp = h.sqrMagnitude > 0.0001f
+            ? h.normalized
+            : Quaternion.Euler(0f, 90f, 0f) * threatDir.normalized; // 恰好在线上的退化情况
+
+        // 候选路程（沿垂直方向移动的量）：
+        // 远离侧：直接移出危险区
+        float needFar = Mathf.Max(0f, dangerHalf - lineDistNow);
+        // 穿过侧：穿过路径线到另一侧（更远——默认被排除，仅当远离侧堵死时用）
+        float needCross = lineDistNow + dangerHalf;
+
+        Vector3 dodgeDir = perp;
         if (grid != null)
         {
-            Vector3 probe = transform.position + perp * 3f;
-            if (!grid.IsWalkable(grid.WorldToCell(probe), unitRadius))
+            float reachFar = ReachAlong(grid, perp);
+            float reachCross = ReachAlong(grid, -perp);
+            if (reachFar < needFar && reachCross >= needCross)
             {
-                perp = -perp; // 换反侧
-                probe = transform.position + perp * 3f;
-                if (!grid.IsWalkable(grid.WorldToCell(probe), unitRadius))
+                dodgeDir = -perp; // 远离侧走不出危险区，改穿到另一侧（路程更大但可达）
+            }
+            else if (reachFar < needFar && reachCross < needCross)
+            {
+                // 两侧都走不出危险区：选可达路程长的一侧（尽量远离，stuck 检测兜底脱困）
+                if (reachCross > reachFar)
                 {
-                    perp = -perp; // 两侧都堵：退回原侧（stuck 检测兜底，不会无限顶墙）
+                    dodgeDir = -perp;
                 }
             }
         }
 
-        float targetAngle = Mathf.Atan2(perp.x, perp.z) * Mathf.Rad2Deg;
+        float targetAngle = Mathf.Atan2(dodgeDir.x, dodgeDir.z) * Mathf.Rad2Deg;
         float angleDiff = Mathf.DeltaAngle(transform.eulerAngles.y, targetAngle);
         moveInput.x = Mathf.Clamp(angleDiff / 45f, -1f, 1f);
         float turnFactor = Mathf.Clamp01(1f - Mathf.Abs(angleDiff) / 90f);
         moveInput.y = turnFactor;
+    }
+
+    // 沿 dir 探测可走距离（步进 0.5 格，上限 8 格；体积判定）
+    float ReachAlong(GridMap grid, Vector3 dir)
+    {
+        if (grid == null)
+        {
+            return 8f;
+        }
+        for (float d = 0.5f; d <= 8f; d += 0.5f)
+        {
+            if (!grid.IsWalkable(grid.WorldToCell(transform.position + dir * d), unitRadius))
+            {
+                return d - 0.5f;
+            }
+        }
+        return 8f;
     }
 
     // 旋转躲避（低威胁：擦边命中）：转决策层算好的安全角（快照，执行层不重算）。

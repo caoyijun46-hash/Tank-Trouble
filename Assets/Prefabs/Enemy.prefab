@@ -47,7 +47,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AimLinePreview
   firePoint: {fileID: 7062099538363450800}
   line: {fileID: 1253638407043049978}
-  config: {fileID: 0}
+  config: {fileID: 11400000, guid: 2c99a537dab28a242a7280685c68bfca, type: 2}
   obstacleMask:
     serializedVersion: 2
     m_Bits: 183
@@ -564,10 +564,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TankAI
   status: 0
-  bulletPrefab: {fileID: 0}
-  laserPrefab: {fileID: 0}
-  missilePrefab: {fileID: 0}
-  firePoint: {fileID: 0}
+  bulletPrefab: {fileID: 5420566782939206507, guid: 55d7fb1ed91b10941b0d864ac3d4bd78, type: 3}
+  laserPrefab: {fileID: 839420172273132283, guid: 2cbfd6226b2b7084dbb109bcb402a49f, type: 3}
+  missilePrefab: {fileID: 1286159369651521980, guid: 6460857c5aee83347995bd77d121891d, type: 3}
+  firePoint: {fileID: 7062099538363450800}
   maxBullets: 5
   coolDown: 0.5
   moveSpeed: 20
@@ -576,7 +576,14 @@ MonoBehaviour:
   angleStep: 1
   aimThreshold: 3
   fireCooldown: 0.5
-  config: {fileID: 0}
+  fireRange: 20
+  chaseArriveDistance: 4
+  unitRadius: 2
+  maxRecoverRadius: 10
+  threatHighThreshold: 1.5
+  dodgeRotateStep: 5
+  threatTimeLimit: 1.2
+  config: {fileID: 11400000, guid: 2c99a537dab28a242a7280685c68bfca, type: 2}
   obstacleMask:
     serializedVersion: 2
     m_Bits: 4294967295

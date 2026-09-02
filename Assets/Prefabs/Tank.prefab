@@ -47,8 +47,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AimLinePreview
   firePoint: {fileID: 7062099538363450800}
   line: {fileID: 1253638407043049978}
-  maxBounces: 5
-  maxDistance: 100
+  config: {fileID: 11400000, guid: 2c99a537dab28a242a7280685c68bfca, type: 2}
   obstacleMask:
     serializedVersion: 2
     m_Bits: 183
@@ -564,7 +563,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1f98e438e24d7c04db7d0b6f1d03157f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tank
-  status: 3
+  status: 0
   bulletPrefab: {fileID: 5420566782939206507, guid: 55d7fb1ed91b10941b0d864ac3d4bd78, type: 3}
   laserPrefab: {fileID: 839420172273132283, guid: 2cbfd6226b2b7084dbb109bcb402a49f, type: 3}
   missilePrefab: {fileID: 1286159369651521980, guid: 6460857c5aee83347995bd77d121891d, type: 3}
