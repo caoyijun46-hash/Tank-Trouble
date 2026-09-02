@@ -24,6 +24,21 @@ public class GridMap : MonoBehaviour
         Build();
     }
 
+    // 运行时地图变化（如迷宫生成）后调用：重建可走网格
+    public void Rebuild()
+    {
+        Build();
+    }
+
+    // 迷宫每局尺寸随机：先按实际范围更新扫描矩形，再重建网格。
+    // min 为地图左下角（迷宫坐标系以原点为起点）
+    public void SetBounds(Vector2 min, Vector2 max)
+    {
+        minBounds = min;
+        maxBounds = max;
+        Build();
+    }
+
     void Build()
     {
         width = Mathf.CeilToInt((maxBounds.x - minBounds.x) / cellSize);
