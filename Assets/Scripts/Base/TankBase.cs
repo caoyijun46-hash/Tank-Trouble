@@ -1,9 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-public abstract class TankBase : MonoBehaviour
-{
-    protected enum Power
+public enum Power
     {
         Normal,
         Laser,
@@ -11,7 +9,10 @@ public abstract class TankBase : MonoBehaviour
         Missile,
         Bomb
     }
-    [SerializeField] protected Power status = Power.Normal;
+public abstract class TankBase : MonoBehaviour
+{
+    
+    [SerializeField] public Power status = Power.Normal;
     protected Vector2 moveInput = new Vector2();
     protected Rigidbody rb;
     [SerializeField] protected GameObject bulletPrefab;

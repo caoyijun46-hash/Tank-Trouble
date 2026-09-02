@@ -571,7 +571,7 @@ MonoBehaviour:
   maxBullets: 5
   coolDown: 0.5
   moveSpeed: 20
-  rotateSpeed: 120
+  rotateSpeed: 240
   decideInterval: 0.1
   angleStep: 1
   aimThreshold: 3
