@@ -1,0 +1,15 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:Button name="Pause" text="" icon-image="project://database/Assets/UI/Icon/pause.png?fileID=2800000&amp;guid=a2ec1cf6acb57154b8f1792f92a79d76&amp;type=3#pause" parse-escape-sequences="true" style="flex-direction: column; width: 59px; height: 52px; background-color: rgba(188, 188, 188, 0); border-left-color: rgba(149, 149, 149, 0); border-right-color: rgba(149, 149, 149, 0); border-top-color: rgba(149, 149, 149, 0); border-bottom-color: rgba(149, 149, 149, 0); border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0; -unity-font-definition: url(&quot;project://database/Assets/Fonts/SIMHEI.TTF?fileID=12800000&amp;guid=c4b336e982a8c884391697e29eca86a4&amp;type=3#SIMHEI&quot;); font-size: 10px; margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0;"/>
+    <ui:VisualElement style="flex-grow: 1; flex-shrink: 1; flex-direction: column;"/>
+    <ui:VisualElement style="flex-grow: 0; align-items: flex-start; height: 120px; flex-direction: row; flex-shrink: 1;">
+        <ui:VisualElement style="flex-grow: 0; align-self: flex-start; flex-shrink: 1; width: 124px; height: 90px;">
+            <ui:Image source="project://database/Assets/UI/Icon/player1.png?fileID=2800000&amp;guid=d2db85285a7de5040abd4530d0edc3fe&amp;type=3#player1" uv="0,0,1,1" scale-mode="StretchToFill" style="flex-shrink: 0; width: auto; flex-grow: 1;"/>
+            <ui:Label name="ScoreP1" text="玩家1：0" style="flex-shrink: 1; -unity-font-definition: url(&quot;project://database/Assets/Fonts/SIMHEI.TTF?fileID=12800000&amp;guid=c4b336e982a8c884391697e29eca86a4&amp;type=3#SIMHEI&quot;); flex-grow: 1; -unity-text-align: upper-center; -unity-font-style: bold; font-size: 18px;"/>
+        </ui:VisualElement>
+        <ui:VisualElement style="flex-grow: 1;"/>
+        <ui:VisualElement style="flex-grow: 0; align-items: stretch; width: 124px; height: 118px;">
+            <ui:Image source="project://database/Assets/UI/Icon/ai.png?fileID=2800000&amp;guid=ce276433e81b7df4ab4ce3a920c7e71b&amp;type=3#ai" scale-mode="StretchToFill" style="flex-shrink: 1; background-size: 100% 100%; height: 94px; flex-grow: 1;"/>
+            <ui:Label name="ScoreP2" text="莱很卡：0" style="-unity-text-align: upper-center; flex-grow: 1; font-size: 18px; -unity-font-definition: url(&quot;project://database/Assets/Fonts/SIMHEI.TTF?fileID=12800000&amp;guid=c4b336e982a8c884391697e29eca86a4&amp;type=3#SIMHEI&quot;); -unity-font-style: bold; flex-shrink: 1;"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
