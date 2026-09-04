@@ -229,7 +229,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 7c1db8a43d6ae1f4fab7b253481bcd30, type: 2}
+  - {fileID: 2100000, guid: 29b45fe91d41e9843bf63de5c96a5aeb, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -350,7 +350,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 7c1db8a43d6ae1f4fab7b253481bcd30, type: 2}
+  - {fileID: 2100000, guid: 29b45fe91d41e9843bf63de5c96a5aeb, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -440,7 +440,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 7c1db8a43d6ae1f4fab7b253481bcd30, type: 2}
+  - {fileID: 2100000, guid: 29b45fe91d41e9843bf63de5c96a5aeb, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -572,6 +572,9 @@ MonoBehaviour:
   coolDown: 0.5
   moveSpeed: 20
   rotateSpeed: 240
+  dirtPrefab: {fileID: 4356800953600124292, guid: fb82dfb8d1c7044c69afd2486befecb3, type: 3}
+  dirtOffset: {x: 0, y: 0, z: -1}
+  explosionPrefab: {fileID: 8088288519815545661, guid: c7ad2532a6eeb40b59033c75e71fa054, type: 3}
   decideInterval: 0.1
   angleStep: 1
   aimThreshold: 3
@@ -583,6 +586,9 @@ MonoBehaviour:
   threatHighThreshold: 1.5
   dodgeRotateStep: 5
   threatTimeLimit: 1.2
+  backMinTime: 0.35
+  backMaxTime: 1.5
+  backClearDist: 2.5
   config: {fileID: 11400000, guid: 2c99a537dab28a242a7280685c68bfca, type: 2}
   obstacleMask:
     serializedVersion: 2

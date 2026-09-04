@@ -12,6 +12,11 @@ using UnityEngine;
 //
 // 纯俯视的副产品：墙只显示顶面（1 厚轮廓条），房间里不存在
 // 任何墙体遮挡——这正是 2D 迷宫地图的观感来源。
+//
+// 结算特写（Focus / WatchFullMap）：正交相机的机位只由
+// 位置 + orthographicSize 决定，没有景深概念。特写时每帧把机位
+// 平滑推向目标；平滑速率按 unscaledDeltaTime 走——结算在慢放
+// （timeScale≈0.1）下进行，用缩放时间镜头动作会跟着慢放拖沓。
 // ============================================================
 [RequireComponent(typeof(Camera))]
 public class FixedMapCamera : MonoBehaviour
@@ -19,10 +24,22 @@ public class FixedMapCamera : MonoBehaviour
     [Tooltip("视框余量（比例）：0 = 地图边缘刚好贴屏幕边缘")]
     [SerializeField, Range(0f, 0.5f)] private float padding = 0.03f;
 
+    [Header("结算特写")]
+    [Tooltip("特写半高（orthographicSize）：坦克长 4、房间格 10，7 左右框住击杀现场")]
+    [SerializeField, Range(2f, 30f)] private float focusSize = 7f;
+    [Tooltip("机位平滑速率（次/秒，按真实时间）")]
+    [SerializeField, Range(0.5f, 20f)] private float followRate = 6f;
+
     private Camera cam;
     private Vector2 lastMin;
     private Vector2 lastMax;
     private bool framed;
+
+    // 特写机位：focusTarget != null → 跟随对象（胜者慢放中可能还在移动）；
+    // 否则 hasFocusPoint → 固定点（平局盯最后阵亡处）
+    private Transform focusTarget;
+    private Vector3 focusPoint;
+    private bool hasFocusPoint;
 
     void Awake()
     {
@@ -32,6 +49,11 @@ public class FixedMapCamera : MonoBehaviour
 
     void LateUpdate()
     {
+        if (focusTarget != null || hasFocusPoint)
+        {
+            ApplyFocus();
+            return;
+        }
         if (GridMap.Instance == null) return;
         var min = GridMap.Instance.MinBounds;
         var max = GridMap.Instance.MaxBounds;
@@ -40,6 +62,38 @@ public class FixedMapCamera : MonoBehaviour
         lastMax = max;
         framed = true;
         Frame(min, max);
+    }
+
+    // 特写：盯住一个对象（胜者），或一个固定点（平局最后阵亡处）
+    public void Focus(Transform target)
+    {
+        focusTarget = target;
+        hasFocusPoint = false;
+    }
+
+    public void Focus(Vector3 point)
+    {
+        focusTarget = null;
+        hasFocusPoint = true;
+        focusPoint = point;
+    }
+
+    // 回到全图：清特写机位并强制下一帧按当前 bounds 重取景
+    public void WatchFullMap()
+    {
+        focusTarget = null;
+        hasFocusPoint = false;
+        framed = false;
+    }
+
+    // 每帧把位置/半高平滑推向机位；指数衰减趋近，到点自然停
+    void ApplyFocus()
+    {
+        Vector3 p = focusTarget != null ? focusTarget.position : focusPoint;
+        p.y = 45f; // 相机高度恒定（与 Frame 一致；正交成像与高度无关）
+        float k = 1f - Mathf.Exp(-followRate * Time.unscaledDeltaTime);
+        transform.position = Vector3.Lerp(transform.position, p, k);
+        cam.orthographicSize = Mathf.Lerp(cam.orthographicSize, focusSize, k);
     }
 
     // 每局地图重建后范围变化会自动触发；运行时手动改了参数可调它强制重取景
@@ -57,8 +111,9 @@ public class FixedMapCamera : MonoBehaviour
         cam.orthographicSize = Mathf.Max(byWidth, h * 0.5f) * (1f + padding);
 
         // 完全俯视：屏幕右 = +X、上 = +Z。正交下相机高度不影响成像，
-        // 只要全部物体（墙顶最高 y=6）落在近/远裁剪面内即可。
-        // 固定高 7：near=0.3 → 近裁剪面在 y=6.7，正好压住墙顶 6，不留无谓高度
+        // 只要全部物体落在近/远裁剪面内即可。高度 45 + near0.3/far50：
+        // 近裁剪面在 y=44.7（上方无物体），远裁剪面在 y=-5（地面 0 之下），
+        // 墙顶（最高 6）到地面全在深度范围内
         transform.rotation = Quaternion.Euler(90f, 0f, 0f);
         transform.position = new Vector3(c.x, 45f, c.y);
 

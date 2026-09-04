@@ -9,13 +9,15 @@ using UnityEngine;
 //   结束判定：  通用规则——统计仍存活的阵营数；≤1 时结束（1 = 该阵营胜，
 //               0 = 同归于尽平局）。当前参与者：玩家 = 阵营 0，AI = 阵营 1；
 //               未来双人（同队或互打）/三人混战只需改生成时的 team 号。
-//   结算定格：  Time.timeScale = 0 全局冻结（子弹悬停、AI 定住、道具不刷，
-//               画面停在最后一击）；倒计时走 unscaledDeltaTime。
-//   自动重开：  定格结束 → 清场 → 新随机迷宫 → 生成新参与者 → 恢复 timeScale。
+//   结算演出：  判定结束 → timeScale 降到 slowMotion（默认 0.12）慢放 + 相机
+//               特写击杀现场——子弹缓飞、爆炸烟在慢镜里展开。刻意不用
+//               timeScale=0：粒子系统吃 timeScale，归零会把爆炸冻在半空。
+//   自动重开：  展示结束 → 清场 → 新随机迷宫 → 生成新参与者 → 相机回全图 →
+//               恢复 timeScale=1。
 //
-// timeScale=0 的纪律：
+// timeScale 纪律（慢放/暂停菜单共用）：
 //   - 轮次计时一律用 Time.unscaledDeltaTime / yield return null（按帧推进）
-//   - 物理查询/Destroy/InputSystem 在暂停下照常工作，重建流程无需特殊处理
+//   - 物理查询/Destroy/InputSystem 在任何 timeScale 下照常工作，重建流程无需特殊处理
 //   - 恢复 timeScale=1 放在生成完成之后
 //
 // 清场纪律（Destroy 帧末生效）：
@@ -57,8 +59,10 @@ public class GameManager : MonoBehaviour
     [Header("迷宫数据源（留空自动查找场景里的 Map Spawner）")]
     [SerializeField] private MapSpawner mapSpawner;
 
-    [Header("主循环")]
-    [SerializeField, Range(0.5f, 10f)] private float restartDelay = 3f; // 定格展示时长
+    [Header("结算演出（慢放 + 特写）")]
+    [SerializeField] private FixedMapCamera roundCamera;      // 留空自动找场景相机
+    [SerializeField, Range(0.02f, 0.5f)] private float slowMotion = 0.12f; // 结算慢放比例
+    [SerializeField, Range(0.5f, 10f)] private float restartDelay = 3f; // 结算展示时长（真实秒）
 
     private MazeData maze;
     private readonly HashSet<Vector2Int> tankCells = new(); // 本局坦克已占大格（防重合）
@@ -70,14 +74,27 @@ public class GameManager : MonoBehaviour
     private readonly List<(GameObject go, int team)> roster = new();
 
     private RoundState state = RoundState.Playing;
-    private float endTimer;    // 定格展示剩余时间（unscaled）
+    private float endTimer;    // 结算展示剩余时间（unscaled 真实秒）
     private int roundNumber;
     private int winnerTeam;    // 结算阵营号；-1 = 平局
+    private Vector3? lastDeathPos; // 最近一次阵亡点（TankBase.AnyDied 上报；平局特写机位）
 
     void Awake()
     {
         Instance = this;
+        TankBase.AnyDied += OnTankDied;
     }
+
+    void OnDestroy()
+    {
+        TankBase.AnyDied -= OnTankDied;
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+    }
+
+    void OnTankDied(Vector3 point) => lastDeathPos = point;
 
     void Start()
     {
@@ -93,6 +110,10 @@ public class GameManager : MonoBehaviour
             Debug.LogError("GameManager: 找不到 MapSpawner（迷宫数据），无法开局", this);
             enabled = false;
             return;
+        }
+        if (roundCamera == null)
+        {
+            roundCamera = FindAnyObjectByType<FixedMapCamera>();
         }
         Time.timeScale = 1f;
         maze = mapSpawner.Data;
@@ -154,14 +175,34 @@ public class GameManager : MonoBehaviour
             Debug.Log($"—— 第 {roundNumber} 局结束：同归于尽，平局（比分 {ScoreLine()}）——");
         }
 
-        // 定格：画面停在最后一击。时间停止后子弹悬停、AI 定住、道具不刷
+        // 慢放演出：timeScale 降到 slowMotion——子弹缓飞、AI 慢动、爆炸烟在
+        // 慢镜里展开（timeScale=0 会把粒子冻在半空，粒子系统吃 timeScale）
         state = RoundState.RoundEnded;
-        Time.timeScale = 0f;
+        Time.timeScale = slowMotion;
         endTimer = restartDelay;
+        FocusRoundEnd(aliveTeams); // 相机特写（机位由"谁赢了/死在哪"决定）
     }
 
-    // 结算定格展示中（RoundEnded）：暂停入口应禁用——定格只有几秒且到点
-    // 自动重开，此时开暂停会和重开协程的 timeScale 恢复打架（见 PauseController）
+    // 结算机位：有胜者 → 盯住存活者（它慢放中可能还在移动）；平局 → 盯
+    // 最后阵亡点（TankBase.AnyDied 上报）；都拿不到 → 全图
+    void FocusRoundEnd(int aliveTeams)
+    {
+        if (roundCamera == null)
+        {
+            return;
+        }
+        if (lastDeathPos.HasValue)
+        {
+            roundCamera.Focus(lastDeathPos.Value);
+        }
+        else
+        {
+            roundCamera.WatchFullMap();
+        }
+    }
+
+    // 结算展示中（RoundEnded，慢放几秒）：暂停入口应禁用——展示只有几秒
+    // 且到点自动重开，此时开暂停会和重开协程的 timeScale 恢复打架（见 PauseController）
     public bool RoundFrozen => state == RoundState.RoundEnded;
 
     // 本局涉及的所有阵营号（去重，供判活遍历）
@@ -259,6 +300,7 @@ public class GameManager : MonoBehaviour
 
         maze = mapSpawner.Data;
         roundNumber++;
+        roundCamera?.WatchFullMap(); // 机位回全图：新图 bounds 已生效，强制重取景
         SpawnRound();
         Time.timeScale = 1f; // 生成完成才恢复世界运行
         state = RoundState.Playing;

@@ -572,6 +572,9 @@ MonoBehaviour:
   coolDown: 0.5
   moveSpeed: 20
   rotateSpeed: 240
+  dirtPrefab: {fileID: 4356800953600124292, guid: fb82dfb8d1c7044c69afd2486befecb3, type: 3}
+  dirtOffset: {x: 0, y: 0, z: -1}
+  explosionPrefab: {fileID: 3371569193385938658, guid: 745208c9d6e104225bd99e1ab894e3bb, type: 3}
   moveAction:
     m_Name: Move
     m_Type: 0

@@ -26,7 +26,16 @@ public abstract class BulletBase : MonoBehaviour
     {
         if (collision.transform.CompareTag("Tank"))
         {
-            Destroy(collision.gameObject);
+            // 击杀统一走 TankBase.Die()：爆炸归属坦克（阵营分色在坦克 prefab 上拖），
+            // 且与换局清场（裸 Destroy）的死因分流——清场不会放烟花
+            if (collision.gameObject.TryGetComponent<TankBase>(out var tank))
+            {
+                tank.Die();
+            }
+            else
+            {
+                Destroy(collision.gameObject);
+            }
             DestoryBullet();
         }
     }
