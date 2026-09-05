@@ -19,21 +19,9 @@ using UnityEngine;
 [DefaultExecutionOrder(10)]
 public class MapSpawner : MonoBehaviour
 {
-    [Header("迷宫参数（每局在范围内随机）")]
-    [Tooltip("X 向格数范围（默认 8~10 → 地图 80~100 宽）")]
-    [SerializeField] private int colsMin = 8;
-    [SerializeField] private int colsMax = 10;
-    [Tooltip("Z 向格数范围（默认 3~4 → 地图 30~40 深）")]
-    [SerializeField] private int rowsMin = 3;
-    [SerializeField] private int rowsMax = 4;
-    [Tooltip("0 = 每局随机种子（不同迷宫）")]
-    [SerializeField] private int seed = 0;
-
-    [Header("补开洞参数（DFS 生成树后额外打通，制造环/多通路）")]
-    [Tooltip("开洞比例区间下限：对本局「仍站立的共享内墙」的比例（0.1 = 再打通约 10%）")]
-    [SerializeField, Range(0f, 1f)] private float loopMin = 0.1f;
-    [Tooltip("开洞比例区间上限：每局在区间内随机取一个比例（设 0 = 无环完美迷宫）")]
-    [SerializeField, Range(0f, 1f)] private float loopMax = 0.25f;
+    [Header("迷宫参数（MazeConfig 资产，Assets/Config/）")]
+    [Tooltip("格数范围/种子/补开洞比例都在 MazeConfig.asset 上，这里不设第二套字段")]
+    [SerializeField] private MazeConfig mazeConfig;
 
     [Header("墙体资源")]
     [SerializeField] private GameObject wallPrefab;  // Prefabs/Wall.prefab
@@ -61,14 +49,19 @@ public class MapSpawner : MonoBehaviour
         RegenerateRandom(); // 首次生成走同一入口（无旧墙 → 网格同帧重建）
     }
 
-    /// <summary>按 Inspector 参数开新一局：行列数/种子每局随机。可重复调用（每局主循环用）</summary>
+    /// <summary>按 MazeConfig 资产参数开新一局：行列数/种子每局随机。可重复调用（每局主循环用）</summary>
     public void RegenerateRandom()
     {
+        if (mazeConfig == null)
+        {
+            Debug.LogError("MapSpawner: 缺 MazeConfig 引用（拖 Assets/Config/MazeConfig.asset）", this);
+            return;
+        }
         // 每局在可调范围内随机行列数；Random.Range(int) 上限不含 → +1
-        int mazeCols = Random.Range(colsMin, colsMax + 1);
-        int mazeRows = Random.Range(rowsMin, rowsMax + 1);
-        Generate(mazeCols, mazeRows, seed == 0 ? Random.Range(1, int.MaxValue) : seed,
-            loopMin, loopMax);
+        int mazeCols = Random.Range(mazeConfig.colsMin, mazeConfig.colsMax + 1);
+        int mazeRows = Random.Range(mazeConfig.rowsMin, mazeConfig.rowsMax + 1);
+        int mazeSeed = mazeConfig.seed == 0 ? Random.Range(1, int.MaxValue) : mazeConfig.seed;
+        Generate(mazeCols, mazeRows, mazeSeed, mazeConfig.loopMin, mazeConfig.loopMax);
     }
 
     /// <summary>决策层生成 + 执行层实例化。可重复调用（旧墙先清掉）</summary>

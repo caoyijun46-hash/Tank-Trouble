@@ -20,12 +20,16 @@ public abstract class TankBase : MonoBehaviour
     [SerializeField] protected GameObject missilePrefab;
     [SerializeField] protected Transform firePoint;
     protected List<GameObject> pooledBullets = new List<GameObject>();
-    [SerializeField] protected int maxBullets = 5;
     protected GameObject bullet;
-    [SerializeField] protected float coolDown = 0.5f;
     protected bool isCoolDown = true;
-    [SerializeField] protected float moveSpeed = 20f;
-    [SerializeField] protected float rotateSpeed = 240f;
+    // 手感数值单一来源（Assets/Config/UnitConfig.asset，三个坦克 prefab 共用一份）。
+    // Init 时缓存进下方字段（Move/Fire 热路径不查资产）；不设组件侧第二套字段——
+    // 调手感只改资产一处
+    [SerializeField] protected UnitConfig unitConfig;
+    protected float moveSpeed;
+    protected float rotateSpeed;
+    protected float coolDown;
+    protected int maxBullets;
     // 移动扬尘：FX_DirtSplatter（looping 常驻型），Start 时实例化为子物体，
     // 由 Move 每帧按实际速度接管 Play/Stop——prefab 的 playOnAwake=1 必须先压住
     [SerializeField] protected GameObject dirtPrefab;
@@ -129,8 +133,27 @@ public abstract class TankBase : MonoBehaviour
     protected void Init()
     {
         rb = gameObject.GetComponent<Rigidbody>();
+        ApplyUnitConfig();
         InitPool();
         InitDirt();
+    }
+
+    // 手感参数只在 Init 读一次进缓存字段（Move/Fire 每帧热路径不查资产）
+    void ApplyUnitConfig()
+    {
+        if (unitConfig == null)
+        {
+            Debug.LogError($"{name}: 缺 UnitConfig 引用（Tank/Tank 1/Enemy prefab 组件上拖 Assets/Config/UnitConfig.asset）", this);
+            moveSpeed = 20f;   // 兜底常量仅防缺配崩溃，不是第二配置源
+            rotateSpeed = 240f;
+            coolDown = 0.5f;
+            maxBullets = 5;
+            return;
+        }
+        moveSpeed = unitConfig.moveSpeed;
+        rotateSpeed = unitConfig.rotateSpeed;
+        coolDown = unitConfig.coolDown;
+        maxBullets = unitConfig.maxBullets;
     }
 
     // dirt 实例化为坦克子物体（随坦克移动/销毁自动跟随）；立即 Stop 压住

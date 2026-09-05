@@ -148,13 +148,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7da7ef57f46dcf642b3a0d8b8d9e423d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MapSpawner
-  colsMin: 4
-  colsMax: 10
-  rowsMin: 4
-  rowsMax: 10
-  seed: 0
-  loopMin: 0.25
-  loopMax: 0.25
+  mazeConfig: {fileID: 11400000, guid: 3f83ae3373d21c247ac8536c72bc9fa2, type: 2}
   wallPrefab: {fileID: 6132355131173753678, guid: 76854ed03c0a2b0479a57df494897cb9, type: 3}
   floorMat: {fileID: 2100000, guid: ce4eac462589f5846bde5dc1b06e96f5, type: 2}
   wallRoot: {fileID: 0}
@@ -323,9 +317,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7c5a3f19d02b4e6c8a1d5f7e3b9c4d2a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FixedMapCamera
-  padding: 0.03
-  focusSize: 7
-  followRate: 6
+  camConfig: {fileID: 11400000, guid: 477c6803a51f1a844ac77d27125be2ec, type: 2}
 --- !u!1 &1188911798
 GameObject:
   m_ObjectHideFlags: 0
@@ -373,15 +365,10 @@ MonoBehaviour:
   tankPrefab: {fileID: 8502888892767159392, guid: d3e4e3d5fe784bd4ea1580206ba87d04, type: 3}
   aiPrefab: {fileID: 8502888892767159392, guid: 10b464830d587544d86f104c720ff2e9, type: 3}
   player2Prefab: {fileID: 8502888892767159392, guid: c25cbee870ed520438de9f146f79f6f3, type: 3}
-  aiCount: 1
+  roundConfig: {fileID: 11400000, guid: 02590aac869eda245badeed1c535b0f0, type: 2}
   itemPrefab: {fileID: 2243431005286200699, guid: bb03d08061acfe54a9fda00ed876af46, type: 3}
-  itemInterval: 5
-  maxItems: 8
-  itemPool: 0100000003000000
   mapSpawner: {fileID: 0}
   roundCamera: {fileID: 0}
-  slowMotion: 0.12
-  restartDelay: 3
 --- !u!1 &1248042928
 GameObject:
   m_ObjectHideFlags: 0

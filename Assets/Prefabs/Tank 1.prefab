@@ -568,10 +568,7 @@ MonoBehaviour:
   laserPrefab: {fileID: 839420172273132283, guid: 2cbfd6226b2b7084dbb109bcb402a49f, type: 3}
   missilePrefab: {fileID: 1286159369651521980, guid: 6460857c5aee83347995bd77d121891d, type: 3}
   firePoint: {fileID: 7062099538363450800}
-  maxBullets: 5
-  coolDown: 0.5
-  moveSpeed: 20
-  rotateSpeed: 240
+  unitConfig: {fileID: 11400000, guid: 0c64ca324cb2b984b8665dd0219c4d2a, type: 2}
   dirtPrefab: {fileID: 4356800953600124292, guid: fb82dfb8d1c7044c69afd2486befecb3, type: 3}
   dirtOffset: {x: 0, y: 0, z: -1}
   explosionPrefab: {fileID: 1176145624114067509, guid: ec46c8c4a3cbc429382ee48bd9169b45, type: 3}

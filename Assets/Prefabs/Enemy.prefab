@@ -568,28 +568,9 @@ MonoBehaviour:
   laserPrefab: {fileID: 839420172273132283, guid: 2cbfd6226b2b7084dbb109bcb402a49f, type: 3}
   missilePrefab: {fileID: 1286159369651521980, guid: 6460857c5aee83347995bd77d121891d, type: 3}
   firePoint: {fileID: 7062099538363450800}
-  maxBullets: 5
-  coolDown: 0.5
-  moveSpeed: 20
-  rotateSpeed: 240
+  unitConfig: {fileID: 11400000, guid: 0c64ca324cb2b984b8665dd0219c4d2a, type: 2}
   dirtPrefab: {fileID: 4356800953600124292, guid: fb82dfb8d1c7044c69afd2486befecb3, type: 3}
   dirtOffset: {x: 0, y: 0, z: -1}
   explosionPrefab: {fileID: 8088288519815545661, guid: c7ad2532a6eeb40b59033c75e71fa054, type: 3}
-  decideInterval: 0.1
-  angleStep: 1
-  aimThreshold: 3
-  fireCooldown: 0.5
-  fireRange: 20
-  chaseArriveDistance: 4
-  unitRadius: 2
-  maxRecoverRadius: 10
-  threatHighThreshold: 1.5
-  dodgeRotateStep: 5
-  threatTimeLimit: 1.2
-  backMinTime: 0.35
-  backMaxTime: 1.5
-  backClearDist: 2.5
+  aiConfig: {fileID: 11400000, guid: 05dbd97aec4cb3540a94b4e17fc0409d, type: 2}
   config: {fileID: 11400000, guid: 2c99a537dab28a242a7280685c68bfca, type: 2}
-  obstacleMask:
-    serializedVersion: 2
-    m_Bits: 4294967295

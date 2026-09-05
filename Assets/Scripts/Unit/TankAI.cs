@@ -7,23 +7,10 @@ public class TankAI : TankBase
 {
     private enum AIAction { Shoot, Chase, DodgeMove, DodgeRotate }
 
-    [SerializeField] private float decideInterval = 0.1f;   // 决策节流间隔（秒）
-    [SerializeField] private float angleStep = 1f;          // 角度枚举步长（度）：越小越准，越大越"笨"
-    [SerializeField] private float aimThreshold = 1f;       // 对准判定阈值（度）
-    [SerializeField] private float fireCooldown = 0.5f;     // 开火冷却（秒）
-    [SerializeField] private float fireRange = 20f;         // 射击射程：弹道长度低于它才站桩射击，否则追击
-    [SerializeField] private float chaseArriveDistance = 4f; // 追击到达判定距离（接近目标就停，等切换射击）
-    [SerializeField] private int unitRadius = 2;            // 坦克体积半径（格数）
-    [SerializeField] private int maxRecoverRadius = 10;     // 找回网格的最大搜索半径
-    [SerializeField] private float threatHighThreshold = 1.5f;  // 命中点离中心低于它 → 穿心（高威胁，移动躲）
-    [SerializeField] private float dodgeRotateStep = 5f;        // 旋转躲避角度采样步长：量化精度（15° 会导致过转/不转）
-    [SerializeField] private float threatTimeLimit = 1.2f;      // 威胁到达时间上限：更远的子弹不值得立即反应（避免过早躲避 + 虚警刷屏）
-    [Header("卡墙脱困")]
-    [SerializeField] private float backMinTime = 0.35f;     // 倒车最短时长（秒）：退出前先退开一段
-    [SerializeField] private float backMaxTime = 1.5f;      // 倒车上限（秒）：保险，防极端死角无限倒车
-    [SerializeField] private float backClearDist = 2.5f;    // "不再顶墙"判定：前方净空超过它即视为让开
+    // 行为算法参数单一来源（Assets/Config/AiConfig.asset）。
+    // 想调 AI 难度：复制资产改数值，Enemy.prefab 换拖一份，代码零改动
+    [SerializeField] private AiConfig aiConfig;
     [SerializeField] private BallisticConfig config;        // 与子弹同源：模拟参数和实际一致
-    [SerializeField] private LayerMask obstacleMask = ~0;   // Inspector 里排除 Bullet 层
 
     private Transform target;
     private AIAction action = AIAction.Shoot;
@@ -63,6 +50,12 @@ public class TankAI : TankBase
         Init();
         selfCollider = GetComponent<Collider>(); // SphereCast 枚举起点在自身碰撞体内，必须忽略
         lastPos = transform.position;
+        if (aiConfig == null)
+        {
+            Debug.LogError($"{name}: 缺 AiConfig 引用（Enemy prefab 组件上拖 Assets/Config/AiConfig.asset）", this);
+            enabled = false;
+            return;
+        }
     }
 
     // 决策层：节流执行，输出"意图"（模式 + 参数）
@@ -72,7 +65,7 @@ public class TankAI : TankBase
         if (decideTimer <= 0f)
         {
             Decide();
-            decideTimer = decideInterval;
+            decideTimer = aiConfig.decideInterval;
         }
     }
 
@@ -89,8 +82,8 @@ public class TankAI : TankBase
     // 形成"撞墙 → 倒车 → 再撞墙"死循环。新版两点改动：
     //   1. 倒车同时朝脱困角 escapeYaw 旋转（进入时扫掠算一次）——让车头
     //      离开墙面，而不是倒完继续怼原墙；
-    //   2. 退出条件 = 前方净空恢复（backClearDist）且已倒够 backMinTime；
-    //      倒不干净就继续倒，backMaxTime 兜底防极端卡死。
+    //   2. 退出条件 = 前方净空恢复（aiConfig.backClearDist）且已倒够 aiConfig.backMinTime；
+    //      倒不干净就继续倒，aiConfig.backMaxTime 兜底防极端卡死。
     // Backing 期间不计 stuck（否则倒车让前进 progress 恒为负，永远退不出去）
     void UpdateStuckState()
     {
@@ -105,7 +98,7 @@ public class TankAI : TankBase
         if (isStuck)
         {
             escapeYaw = ComputeEscapeYaw(); // 决策一次，执行层只消费
-            backingLeft = backMaxTime;
+            backingLeft = aiConfig.backMaxTime;
             stuckTimer = 0f; // 清零：倒车结束后从零重新检测
             EscapeDrive();   // 进入状态的当帧立即接管 moveInput
         }
@@ -117,9 +110,9 @@ public class TankAI : TankBase
         moveInput.x = escapeYaw >= 0f ? SteerToward(escapeYaw) : 0f;
         moveInput.y = -0.5f; // 半速倒车
 
-        // 前方净空 >= backClearDist = 不再顶墙；且已倒够最短时长 → 恢复自由决策
-        bool frontClear = FrontReach() >= backClearDist;
-        if ((frontClear && backingLeft <= backMaxTime - backMinTime) || backingLeft <= 0f)
+        // 前方净空 >= aiConfig.backClearDist = 不再顶墙；且已倒够最短时长 → 恢复自由决策
+        bool frontClear = FrontReach() >= aiConfig.backClearDist;
+        if ((frontClear && backingLeft <= aiConfig.backMaxTime - aiConfig.backMinTime) || backingLeft <= 0f)
         {
             backingLeft = 0f;
             escapeYaw = -1f;
@@ -132,7 +125,7 @@ public class TankAI : TankBase
         GridMap grid = GridMap.Instance;
         if (grid == null)
         {
-            return backClearDist; // 无网格场景不判"顶墙"
+            return aiConfig.backClearDist; // 无网格场景不判"顶墙"
         }
         return ReachAlong(grid, transform.forward);
     }
@@ -153,7 +146,7 @@ public class TankAI : TankBase
             {
                 float yaw = current + sign * offset;
                 Vector3 dir = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
-                if (ReachAlong(grid, dir) >= backClearDist)
+                if (ReachAlong(grid, dir) >= aiConfig.backClearDist)
                 {
                     return yaw;
                 }
@@ -225,15 +218,15 @@ public class TankAI : TankBase
         float? angle = SolveFireAngle(target, out pathLength);
 
         // 打得到且不远 → 站桩射击；否则追击（追近再打）。
-        // fireRange 是"追还是打"的切换点：没有它 AI 会永远站在原地打远弹
-        if (angle.HasValue && pathLength < fireRange)
+        // aiConfig.fireRange 是"追还是打"的切换点：没有它 AI 会永远站在原地打远弹
+        if (angle.HasValue && pathLength < aiConfig.fireRange)
         {
             action = AIAction.Shoot;
-            // 滞回：新角度与当前角度差小于 2×angleStep 时不更新。
+            // 滞回：新角度与当前角度差小于 2×aiConfig.angleStep 时不更新。
             // 墙角反弹时命中角是一段连续范围，弹道最短角随位置微变跳变，
             // 直接更新会让转向追着跳变角过冲震荡（抖动不射击）
             if (!fireAngle.HasValue ||
-                Mathf.Abs(Mathf.DeltaAngle(fireAngle.Value, angle.Value)) > angleStep * 2f)
+                Mathf.Abs(Mathf.DeltaAngle(fireAngle.Value, angle.Value)) > aiConfig.angleStep * 2f)
             {
                 fireAngle = angle;
             }
@@ -294,7 +287,7 @@ public class TankAI : TankBase
             // 预测物理运动必须用 velocity
             PathResult r = BallisticPath.Simulate(
                 b.transform.position, b.VelocityDirection,
-                config.maxBounces, config.MaxDistance, obstacleMask,
+                config.maxBounces, config.MaxDistance, aiConfig.obstacleMask,
                 reuseThreat, config.bulletRadius + 0.2f);
 
             if (r.end == PathEnd.HitTank && r.hitCollider != null && r.hitCollider.transform == transform)
@@ -302,7 +295,7 @@ public class TankAI : TankBase
                 float arriveTime = r.length / config.speed;
                 // 时效过滤：到达时间超过上限的子弹不值得立即反应——
                 // 否则远处的子弹触发躲避，且每颗新子弹刷新威胁快照，躲避方向持续漂移（坦克卡在转向里不动）
-                if (arriveTime > threatTimeLimit)
+                if (arriveTime > aiConfig.threatTimeLimit)
                 {
                     continue;
                 }
@@ -319,7 +312,7 @@ public class TankAI : TankBase
                     // 用 2D 叉积（仅 y 分量）：3D 叉积会带入命中点与中心的 y 差（子弹飞行高度 vs 坦克中心）
                     Vector3 toCenter = threatHitPoint - transform.position;
                     float lineDist = Mathf.Abs(threatDir.x * toCenter.z - threatDir.z * toCenter.x);
-                    threatIsHigh = lineDist < threatHighThreshold;
+                    threatIsHigh = lineDist < aiConfig.threatHighThreshold;
                     found = true;
                 }
             }
@@ -339,11 +332,11 @@ public class TankAI : TankBase
         Vector3 origin = transform.position;
         float best = -1f;
 
-        for (float a = 0f; a < 360f; a += angleStep)
+        for (float a = 0f; a < 360f; a += aiConfig.angleStep)
         {
             Vector3 dir = Quaternion.Euler(0f, a, 0f) * Vector3.forward;
             PathResult r = BallisticPath.Simulate(
-                origin, dir, config.maxBounces, config.MaxDistance, obstacleMask,
+                origin, dir, config.maxBounces, config.MaxDistance, aiConfig.obstacleMask,
                 reuse, config.bulletRadius, selfCollider);
 
             if (r.end == PathEnd.HitTank && r.hitCollider != null && r.hitCollider.transform == target)
@@ -371,9 +364,9 @@ public class TankAI : TankBase
         Vector2Int start = grid.WorldToCell(transform.position);
         Vector2Int goal = grid.WorldToCell(target.position);
 
-        if (!grid.IsWalkable(start, unitRadius))
+        if (!grid.IsWalkable(start, aiConfig.unitRadius))
         {
-            Vector2Int? near = grid.ClosestWalkable(start, maxRecoverRadius, unitRadius);
+            Vector2Int? near = grid.ClosestWalkable(start, aiConfig.maxRecoverRadius, aiConfig.unitRadius);
             if (near == null)
             {
                 path = null;
@@ -381,9 +374,9 @@ public class TankAI : TankBase
             }
             start = near.Value;
         }
-        if (!grid.IsWalkable(goal, unitRadius))
+        if (!grid.IsWalkable(goal, aiConfig.unitRadius))
         {
-            Vector2Int? near = grid.ClosestWalkable(goal, maxRecoverRadius, unitRadius);
+            Vector2Int? near = grid.ClosestWalkable(goal, aiConfig.maxRecoverRadius, aiConfig.unitRadius);
             if (near == null)
             {
                 path = null;
@@ -394,7 +387,7 @@ public class TankAI : TankBase
 
         // A* 输出是逐格密集序列（cellSize=1，相邻格距 1 单位 ≪ 坦克尺寸），
         // 先压缩成"直线可达"的关键点，坦克才能按动力学跟随
-        List<Vector2Int> dense = Pathfinding.FindPath(grid, start, goal, unitRadius);
+        List<Vector2Int> dense = Pathfinding.FindPath(grid, start, goal, aiConfig.unitRadius);
         path = dense == null ? null : SimplifyPath(dense);
         pathIndex = path == null || path.Count == 0 ? 0 : 1; // 跳过起点格
         plannedGoalCell = path == null ? null : goal;
@@ -428,7 +421,7 @@ public class TankAI : TankBase
     }
 
     // 两点连线全程可直行（坦克体积口径）：沿线段每 0.75 格采一个点，
-    // 用 IsWalkable(cell, unitRadius) 保证车体能沿这条直线开过去不蹭墙
+    // 用 IsWalkable(cell, aiConfig.unitRadius) 保证车体能沿这条直线开过去不蹭墙
     bool LineClear(Vector2Int a, Vector2Int b)
     {
         GridMap grid = GridMap.Instance;
@@ -446,7 +439,7 @@ public class TankAI : TankBase
             var cell = new Vector2Int(
                 a.x + Mathf.RoundToInt(dx * t),
                 a.y + Mathf.RoundToInt(dy * t));
-            if (!grid.IsWalkable(cell, unitRadius))
+            if (!grid.IsWalkable(cell, aiConfig.unitRadius))
             {
                 return false;
             }
@@ -486,11 +479,11 @@ public class TankAI : TankBase
         }
 
         moveInput.x = SteerToward(fireAngle.Value);
-        if (Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, fireAngle.Value)) <= aimThreshold
+        if (Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, fireAngle.Value)) <= aiConfig.aimThreshold
             && cooldownTimer <= 0f)
         {
             //Fire();
-            cooldownTimer = fireCooldown;
+            cooldownTimer = aiConfig.fireCooldown;
         }
     }
 
@@ -501,7 +494,7 @@ public class TankAI : TankBase
     float SteerToward(float targetAngle, float approachAngle = 24f)
     {
         float angleDiff = Mathf.DeltaAngle(transform.eulerAngles.y, targetAngle);
-        if (Mathf.Abs(angleDiff) < aimThreshold)
+        if (Mathf.Abs(angleDiff) < aiConfig.aimThreshold)
         {
             return 0f; // 死区：到位即停
         }
@@ -520,7 +513,7 @@ public class TankAI : TankBase
 
     // 追击执行：跟随"压缩后"的关键点序列（关键点间距 = 直道长度，远大于车长）。
     // 与旧版差异：
-    //   1. 推进判定 = 距当前关键点 < chaseArriveDistance 就换下一个。旧版对
+    //   1. 推进判定 = 距当前关键点 < aiConfig.chaseArriveDistance 就换下一个。旧版对
     //      cellSize=1 的逐格路径做"投影越过"判定时 segLen(1) < arrive(4)，
     //      条件恒成立 → pathIndex 每帧瞬间冲到底，追击模式实际从未移动；
     //   2. 转向目标 = 当前关键点本身。旧版朝"下下个点"前瞻，目标点斜穿墙角，
@@ -535,21 +528,21 @@ public class TankAI : TankBase
         }
 
         // 到达判定：靠近目标就停，等下次决策切换射击模式
-        if (Vector3.Distance(transform.position, target.position) < chaseArriveDistance)
+        if (Vector3.Distance(transform.position, target.position) < aiConfig.chaseArriveDistance)
         {
             moveInput.x = 0f;
             moveInput.y = 0f;
             return;
         }
 
-        // 距离推进：到关键点 < chaseArriveDistance 就切下一个（关键点间距大，
+        // 距离推进：到关键点 < aiConfig.chaseArriveDistance 就切下一个（关键点间距大，
         // 这个半径不会像逐格路径那样误跳）
         while (pathIndex < path.Count)
         {
             Vector3 wp = GridMap.Instance.CellToWorld(path[pathIndex]);
             float dx = transform.position.x - wp.x;
             float dz = transform.position.z - wp.z;
-            if (dx * dx + dz * dz < chaseArriveDistance * chaseArriveDistance)
+            if (dx * dx + dz * dz < aiConfig.chaseArriveDistance * aiConfig.chaseArriveDistance)
             {
                 pathIndex++;
             }
@@ -652,7 +645,7 @@ public class TankAI : TankBase
         }
         for (float d = 0.5f; d <= 8f; d += 0.5f)
         {
-            if (!grid.IsWalkable(grid.WorldToCell(transform.position + dir * d), unitRadius))
+            if (!grid.IsWalkable(grid.WorldToCell(transform.position + dir * d), aiConfig.unitRadius))
             {
                 return d - 0.5f;
             }
@@ -698,7 +691,7 @@ public class TankAI : TankBase
         float inflate = config.bulletRadius + 0.1f;
         Vector2 extents = new Vector2(TankHalfExtents.x + inflate, TankHalfExtents.y + inflate);
 
-        for (float offset = 0f; offset < 360f; offset += dodgeRotateStep)
+        for (float offset = 0f; offset < 360f; offset += aiConfig.dodgeRotateStep)
         {
             float theta = startYaw + offset;
             Vector2 a = Rotate2D(p0 - center, -theta);

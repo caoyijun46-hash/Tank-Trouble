@@ -5,11 +5,11 @@ using UnityEngine;
 // ============================================================
 // 游戏主循环（阵营制轮次控制器）：
 //   第 N 局开始：MapSpawner 重新随机迷宫 + 按 roaster 生成各阵营坦克
-//   对局中：    每 itemInterval 秒在随机大格中心刷一个随机 Power 的 Item
+//   对局中：    每 roundConfig.itemInterval 秒在随机大格中心刷一个随机 Power 的 Item
 //   结束判定：  通用规则——统计仍存活的阵营数；≤1 时结束（1 = 该阵营胜，
 //               0 = 同归于尽平局）。当前参与者：玩家 = 阵营 0，AI = 阵营 1；
 //               未来双人（同队或互打）/三人混战只需改生成时的 team 号。
-//   结算演出：  判定结束 → timeScale 降到 slowMotion（默认 0.12）慢放 + 相机
+//   结算演出：  判定结束 → timeScale 降到 roundConfig.slowMotion（默认 0.12）慢放 + 相机
 //               特写击杀现场——子弹缓飞、爆炸烟在慢镜里展开。刻意不用
 //               timeScale=0：粒子系统吃 timeScale，归零会把爆炸冻在半空。
 //   自动重开：  展示结束 → 清场 → 新随机迷宫 → 生成新参与者 → 相机回全图 →
@@ -43,26 +43,22 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance { get; private set; }
     public event System.Action ScoresUpdated;
 
-    [Header("坦克生成")]
+    [Header("参与者生成（阵营槽位）")]
     [SerializeField] private GameObject tankPrefab;      // Tank.prefab（玩家 1 号）
     [SerializeField] private GameObject aiPrefab;        // 1vAI 模式的对手（Enemy.prefab）
     [SerializeField] private GameObject player2Prefab;   // 双人模式的对手（第二套人控 Tank）
-    [SerializeField, Range(0, 8)] private int aiCount = 1; // 仅 1vAI 生效（双人固定 1v1）
 
-    [Header("道具周期生成")]
+    [Header("玩法数值（RoundConfig 资产，Assets/Config/）")]
+    [SerializeField] private RoundConfig roundConfig;    // 道具周期/结算演出/AI 数量
+
+    [Header("道具生成")]
     [SerializeField] private GameObject itemPrefab;      // Item.prefab
-    [SerializeField, Range(1f, 60f)] private float itemInterval = 10f;
-    [SerializeField, Range(0, 20)] private int maxItems = 8;
-    [Tooltip("随机 Power 池：只列已实现的（Laser/Missile）")]
-    [SerializeField] private Power[] itemPool = { Power.Laser, Power.Missile };
 
     [Header("迷宫数据源（留空自动查找场景里的 Map Spawner）")]
     [SerializeField] private MapSpawner mapSpawner;
 
-    [Header("结算演出（慢放 + 特写）")]
-    [SerializeField] private FixedMapCamera roundCamera;      // 留空自动找场景相机
-    [SerializeField, Range(0.02f, 0.5f)] private float slowMotion = 0.12f; // 结算慢放比例
-    [SerializeField, Range(0.5f, 10f)] private float restartDelay = 3f; // 结算展示时长（真实秒）
+    [Header("结算特写相机（留空自动查找场景相机）")]
+    [SerializeField] private FixedMapCamera roundCamera;
 
     private MazeData maze;
     private readonly HashSet<Vector2Int> tankCells = new(); // 本局坦克已占大格（防重合）
@@ -108,6 +104,12 @@ public class GameManager : MonoBehaviour
         if (mapSpawner == null || mapSpawner.Data == null)
         {
             Debug.LogError("GameManager: 找不到 MapSpawner（迷宫数据），无法开局", this);
+            enabled = false;
+            return;
+        }
+        if (roundConfig == null)
+        {
+            Debug.LogError("GameManager: 缺 RoundConfig 引用（拖 Assets/Config/RoundConfig.asset）", this);
             enabled = false;
             return;
         }
@@ -175,11 +177,11 @@ public class GameManager : MonoBehaviour
             Debug.Log($"—— 第 {roundNumber} 局结束：同归于尽，平局（比分 {ScoreLine()}）——");
         }
 
-        // 慢放演出：timeScale 降到 slowMotion——子弹缓飞、AI 慢动、爆炸烟在
+        // 慢放演出：timeScale 降到 roundConfig.slowMotion——子弹缓飞、AI 慢动、爆炸烟在
         // 慢镜里展开（timeScale=0 会把粒子冻在半空，粒子系统吃 timeScale）
         state = RoundState.RoundEnded;
-        Time.timeScale = slowMotion;
-        endTimer = restartDelay;
+        Time.timeScale = roundConfig.slowMotion;
+        endTimer = roundConfig.restartDelay;
         FocusRoundEnd(aliveTeams); // 相机特写（机位由"谁赢了/死在哪"决定）
     }
 
@@ -310,17 +312,17 @@ public class GameManager : MonoBehaviour
     // ---------- 参与者生成 ----------
 
     // 阵营二的人选由主菜单（GameConfig.Mode）决定：
-    //   1vAI  → aiPrefab × aiCount；双人 → player2Prefab × 1（固定 1v1）
+    //   1vAI  → aiPrefab × roundConfig.aiCount；双人 → player2Prefab × 1（固定 1v1）
     void SpawnRound()
     {
         bool doubleMode = GameConfig.Mode == GameMode.Double;
         GameObject opponentPrefab = doubleMode ? player2Prefab : aiPrefab;
-        int opponentCount = doubleMode ? 1 : aiCount;
+        int opponentCount = doubleMode ? 1 : roundConfig.aiCount;
         if (doubleMode && player2Prefab == null)
         {
             Debug.LogWarning("GameManager: 双人模式缺 player2Prefab，退回 1vAI", this);
             opponentPrefab = aiPrefab;
-            opponentCount = aiCount;
+            opponentCount = roundConfig.aiCount;
         }
 
         SpawnParticipant(tankPrefab, TeamOne);
@@ -357,13 +359,13 @@ public class GameManager : MonoBehaviour
     void SpawnItemLoop()
     {
         PruneItems();
-        if (itemGos.Count >= maxItems)
+        if (itemGos.Count >= roundConfig.maxItems)
         {
             itemTimer = 0f;
             return;
         }
         itemTimer += Time.deltaTime;
-        if (itemTimer < itemInterval)
+        if (itemTimer < roundConfig.itemInterval)
         {
             return;
         }
@@ -400,7 +402,7 @@ public class GameManager : MonoBehaviour
 
     void SpawnItem()
     {
-        if (maze == null || itemPrefab == null || itemPool.Length == 0)
+        if (maze == null || itemPrefab == null || roundConfig.itemPool.Length == 0)
         {
             return;
         }
@@ -409,7 +411,7 @@ public class GameManager : MonoBehaviour
         {
             return; // 满图了，本周期跳过，下周期再试
         }
-        Power power = itemPool[Random.Range(0, itemPool.Length)];
+        Power power = roundConfig.itemPool[Random.Range(0, roundConfig.itemPool.Length)];
         GameObject go = Instantiate(itemPrefab, MazeCellCenter(cell.Value), Quaternion.identity);
         go.name = $"Item({power})";
         go.GetComponent<Item>().SetPower(power);

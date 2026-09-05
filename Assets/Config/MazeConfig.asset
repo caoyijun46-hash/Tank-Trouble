@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 654b9d9b34e846c9a6e4131a5a2e3dc1, type: 3}
+  m_Name: MazeConfig
+  m_EditorClassIdentifier: Assembly-CSharp::MazeConfig
+  colsMin: 8
+  colsMax: 10
+  rowsMin: 3
+  rowsMax: 4
+  seed: 0
+  loopMin: 0.1
+  loopMax: 0.25

@@ -21,6 +21,13 @@ Assets/Scripts/
 - 移动脚本必须 `.cs` + `.cs.meta` 成对移动（引用按 GUID，路径变了不断连）。
 - 资源目录约定：ScriptableObject 资产 → `Assets/Config/`；预制体 → `Assets/Prefabs/`；材质/物理材质 → `Assets/Materials/`；音频 → `Assets/Sound/`。
 
+## 配置纪律（数值参数统一进 Config 资产）
+
+- 玩法数值按域收进 `Assets/Config/` 的 ScriptableObject（Unit/Ai/Round/Maze/Camera/Ballistic 各一份），组件只留一个 Config 引用——不设组件侧第二套字段（双真相源打架）；组件内兜底常量仅供缺配不崩，不算配置源。
+- 资产引用（prefab/材质/clip/相机）不进 Config，留在场景/prefab 组件上。
+- 想差异化（如 AI 难度）：复制一份资产改数值，组件换拖即可，代码零改动。
+- 调参入口 = 双击 Config 资产；加新参数先想好归哪个域、加进对应 Config 类，再给组件使用。
+
 ## 音频纪律（AudioManager：prefab 全局单例 + 场景切换驱动 BGM）
 
 - AudioManager 做成 prefab（Assets/Prefabs/，拖齐 click/fire/crash/bgm + bgmSceneName），Menu 与 Main 场景各放一个该 prefab 的实例：先加载者经 DontDestroyOnLoad 成为全局，后加载者直接自毁——两实例引用同源（同一 prefab），无交接逻辑；任一场景单独 Play（编辑器直进 Main 调试）都有声音。

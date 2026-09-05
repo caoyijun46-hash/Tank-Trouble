@@ -21,14 +21,9 @@ using UnityEngine;
 [RequireComponent(typeof(Camera))]
 public class FixedMapCamera : MonoBehaviour
 {
-    [Tooltip("视框余量（比例）：0 = 地图边缘刚好贴屏幕边缘")]
-    [SerializeField, Range(0f, 0.5f)] private float padding = 0.03f;
-
-    [Header("结算特写")]
-    [Tooltip("特写半高（orthographicSize）：坦克长 4、房间格 10，7 左右框住击杀现场")]
-    [SerializeField, Range(2f, 30f)] private float focusSize = 7f;
-    [Tooltip("机位平滑速率（次/秒，按真实时间）")]
-    [SerializeField, Range(0.5f, 20f)] private float followRate = 6f;
+    // 取景/特写参数单一来源（Assets/Config/CameraConfig.asset，Main Camera 拖引用）。
+    // 不设组件侧第二套字段；以下三处就地兜底常量仅供缺配不崩，不是配置源
+    [SerializeField] private CameraConfig camConfig;
 
     private Camera cam;
     private Vector2 lastMin;
@@ -91,9 +86,11 @@ public class FixedMapCamera : MonoBehaviour
     {
         Vector3 p = focusTarget != null ? focusTarget.position : focusPoint;
         p.y = 45f; // 相机高度恒定（与 Frame 一致；正交成像与高度无关）
-        float k = 1f - Mathf.Exp(-followRate * Time.unscaledDeltaTime);
+        float rate = camConfig != null ? camConfig.followRate : 6f;
+        float size = camConfig != null ? camConfig.focusSize : 7f;
+        float k = 1f - Mathf.Exp(-rate * Time.unscaledDeltaTime);
         transform.position = Vector3.Lerp(transform.position, p, k);
-        cam.orthographicSize = Mathf.Lerp(cam.orthographicSize, focusSize, k);
+        cam.orthographicSize = Mathf.Lerp(cam.orthographicSize, size, k);
     }
 
     // 每局地图重建后范围变化会自动触发；运行时手动改了参数可调它强制重取景
@@ -108,7 +105,8 @@ public class FixedMapCamera : MonoBehaviour
         // 正交 size = 可视半高。取"按宽"与"按高"两种适配的较大者 →
         // 任意宽高比的地图都能整张入框（当前 100×40 下是宽度受限）
         float byWidth = w * 0.5f / cam.aspect;
-        cam.orthographicSize = Mathf.Max(byWidth, h * 0.5f) * (1f + padding);
+        float pad = camConfig != null ? camConfig.padding : 0.03f;
+        cam.orthographicSize = Mathf.Max(byWidth, h * 0.5f) * (1f + pad);
 
         // 完全俯视：屏幕右 = +X、上 = +Z。正交下相机高度不影响成像，
         // 只要全部物体落在近/远裁剪面内即可。高度 45 + near0.3/far50：
