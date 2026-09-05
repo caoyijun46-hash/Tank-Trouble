@@ -60,13 +60,39 @@ public class PauseController : MonoBehaviour
         Bind(root, "Continue", Continue); // 继续游戏
         Bind(root, "Restart", Restart);   // 重新开始（重置计分板）
         Bind(root, "Menu", GoMenu);       // 回主菜单
+
+        BindVolume(root); // 音量滑杆（音频收口也走本回调）
     }
 
+    // 点击音必须绑进 clicked 回调本身、与动作同点触发：
+    // Restart/Continue 的动作会立刻 SetActive(false) 关掉面板——若音效挂在
+    // ClickEvent 树传播上（root 捕获），面板一禁用事件就传不到（实测只有
+    // 不关面板的 Menu 按钮响）。先播音再执行动作。
     static void Bind(VisualElement root, string name, Action action)
     {
         if (root.Q<Button>(name) is { } button)
         {
-            button.clicked += action;
+            button.clicked += () =>
+            {
+                AudioManager.PlayClick();
+                action();
+            };
+        }
+    }
+
+    // 暂停面板音量条（0-100）：先回读存档位置再监听拖动（赋值会触发一次
+    // ChangeEvent，幂等无碍）；两条通道独立持久化
+    static void BindVolume(VisualElement root)
+    {
+        if (root.Q<Slider>("BGM") is { } bgm)
+        {
+            bgm.value = AudioManager.BgmVolume * 100f;
+            bgm.RegisterCallback<ChangeEvent<float>>(e => AudioManager.SetBgmVolume(e.newValue / 100f));
+        }
+        if (root.Q<Slider>("SFX") is { } sfx)
+        {
+            sfx.value = AudioManager.SfxVolume * 100f;
+            sfx.RegisterCallback<ChangeEvent<float>>(e => AudioManager.SetSfxVolume(e.newValue / 100f));
         }
     }
 

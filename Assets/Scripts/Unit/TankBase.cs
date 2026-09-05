@@ -74,6 +74,7 @@ public abstract class TankBase : MonoBehaviour
         if(isCoolDown)
         {
             isCoolDown = false;
+            AudioManager.PlayFire(); // 冷却放行 = 真正开火（玩家/AI 同源）
             StartCoroutine(CoolDown());
             if(status == Power.Normal)
             {
@@ -149,6 +150,7 @@ public abstract class TankBase : MonoBehaviour
     // 清场是裸 Destroy（不经过 Die）→ 死因天然分流，不会出现换局烟花
     public void Die()
     {
+        AudioManager.PlayCrash(); // 死亡爆炸音（与粒子同点触发）
         SpawnExplosion(transform.position);
         AnyDied?.Invoke(transform.position); // GameManager 记机位（平局特写）
         Destroy(gameObject);
