@@ -18,7 +18,7 @@ MonoBehaviour:
   angleStep: 1
   aimThreshold: 1
   fireCooldown: 0.5
-  fireRange: 20
+  fireRange: 40
   chaseArriveDistance: 4
   threatHighThreshold: 1.5
   dodgeRotateStep: 5

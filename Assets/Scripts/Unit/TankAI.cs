@@ -5,14 +5,16 @@ using UnityEngine;
 // 与玩家 Tank 对称：玩家注入 InputAction，AI 注入决策结果（moveInput + Fire）
 public class TankAI : TankBase
 {
-    private enum AIAction { Shoot, Chase, DodgeMove, DodgeRotate }
+    private enum AIAction { Shoot, Chase, GetItem, DodgeMove, DodgeRotate }
 
     // 行为算法参数单一来源（Assets/Config/AiConfig.asset）。
     // 想调 AI 难度：复制资产改数值，Enemy.prefab 换拖一份，代码零改动
     [SerializeField] private AiConfig aiConfig;
     [SerializeField] private BallisticConfig config;        // 与子弹同源：模拟参数和实际一致
 
-    private Transform target;
+    private Transform target;      // 战斗目标（最近的敌方坦克，射击瞄准用）
+    private Transform chaseTarget; // 移动跟随目标（Chase=target；GetItem=道具）
+    private Item pickupItem;       // 当前要去捡的道具（空手决策产出）
     private AIAction action = AIAction.Shoot;
     private float? fireAngle;      // 射击模式的瞄准角；null = 没有可命中角度
     private List<Vector2Int> path; // 追击模式的寻路路径（A* 后已压缩成关键点）
@@ -189,7 +191,6 @@ public class TankAI : TankBase
         // 子弹不分敌我（有自伤），所有子弹都是潜在威胁
         if (DetectThreat())
         {
-            print("Threat!");
             if (threatIsHigh)
             {
                 action = AIAction.DodgeMove;
@@ -203,6 +204,14 @@ public class TankAI : TankBase
             }
             fireAngle = null;
             path = null;
+            return;
+        }
+
+        // —— 拾取道具（优先级高于战斗）：空手时场上只要还有道具就去拿，
+        // 放弃正在进行的射击/追击（决策每 0.1s 重评估，吃完立即回战斗）。
+        // 有武器时不捡：status 单槽，捡新的会顶掉现有的 Laser/Missile
+        if (TrySwitchToPickup())
+        {
             return;
         }
 
@@ -235,15 +244,57 @@ public class TankAI : TankBase
         {
             action = AIAction.Chase;
             fireAngle = null;
-            // 目标没换格就不重寻：每决策周期重寻会把 pathIndex 重置，
-            // 执行层刚推进的进度全丢，坦克在转弯点反复原地踏步
-            GridMap grid = GridMap.Instance;
-            Vector2Int goal = grid != null ? grid.WorldToCell(target.position) : default;
-            if (path == null || path.Count == 0 || grid == null || goal != plannedGoalCell)
+            chaseTarget = target;
+            EnsureChasePath();
+        }
+    }
+
+    // 空手且场上有道具 → 切拾取模式并（按需）规划路径；否则不动动作返回 false。
+    // GetItem 的路径维护与 Chase 共用 EnsureChasePath：执行层只认 chaseTarget
+    bool TrySwitchToPickup()
+    {
+        if (CurrentPower != Power.Normal || !FindPickup())
+        {
+            pickupItem = null;
+            return false;
+        }
+        action = AIAction.GetItem;
+        fireAngle = null;
+        chaseTarget = pickupItem.transform;
+        EnsureChasePath();
+        return true;
+    }
+
+    // 移动目标路径维护（Chase/GetItem 共用）：目标没换格就不重寻——
+    // 每决策周期重寻会把 pathIndex 重置，执行层刚推进的进度全丢，
+    // 坦克在转弯点反复原地踏步
+    void EnsureChasePath()
+    {
+        GridMap grid = GridMap.Instance;
+        Vector2Int goal = grid != null ? grid.WorldToCell(chaseTarget.position) : default;
+        if (path == null || path.Count == 0 || grid == null || goal != plannedGoalCell)
+        {
+            PlanChasePath();
+        }
+    }
+
+    // 场上有道具时挑最近的（空手才调用；Item 被吃掉 Destroy 后 Unity
+    // 空引用判定自动失效，本方法每决策周期重跑）
+    bool FindPickup()
+    {
+        Item best = null;
+        float bestSqr = float.MaxValue;
+        foreach (Item item in FindObjectsByType<Item>())
+        {
+            float d = (item.transform.position - transform.position).sqrMagnitude;
+            if (d < bestSqr)
             {
-                PlanChasePath();
+                bestSqr = d;
+                best = item;
             }
         }
+        pickupItem = best;
+        return best != null;
     }
 
     void FindTarget()
@@ -351,18 +402,19 @@ public class TankAI : TankBase
         return best >= 0f ? (float?)best : null;
     }
 
-    // 追击路径规划：寻路到目标格，起点不可走时找回网格（导弹踩过的坑直接复用）
+    // 移动路径规划（Chase/GetItem 共用）：寻路到 chaseTarget 所在格，
+    // 起点/终点不可走时找回网格（导弹踩过的坑直接复用）
     void PlanChasePath()
     {
         GridMap grid = GridMap.Instance;
-        if (grid == null || target == null)
+        if (grid == null || chaseTarget == null)
         {
             path = null;
             return;
         }
 
         Vector2Int start = grid.WorldToCell(transform.position);
-        Vector2Int goal = grid.WorldToCell(target.position);
+        Vector2Int goal = grid.WorldToCell(chaseTarget.position);
 
         if (!grid.IsWalkable(start, aiConfig.unitRadius))
         {
@@ -450,14 +502,14 @@ public class TankAI : TankBase
     void Execute()
     {
         cooldownTimer -= Time.fixedDeltaTime;
-        print(action);
         switch (action)
         {
             case AIAction.Shoot:
                 ExecuteShoot();
                 break;
             case AIAction.Chase:
-                ExecuteChase();
+            case AIAction.GetItem:
+                ExecuteChase(); // 战斗追击与拾取共用的移动执行（停判定内部按 action 区分）
                 break;
             case AIAction.DodgeMove:
                 ExecuteDodgeMove();
@@ -511,7 +563,7 @@ public class TankAI : TankBase
         return Mathf.Clamp(steer, -1f, 1f);
     }
 
-    // 追击执行：跟随"压缩后"的关键点序列（关键点间距 = 直道长度，远大于车长）。
+    // 移动执行（Chase/GetItem 共用）：跟随"压缩后"的关键点序列。
     // 与旧版差异：
     //   1. 推进判定 = 距当前关键点 < aiConfig.chaseArriveDistance 就换下一个。旧版对
     //      cellSize=1 的逐格路径做"投影越过"判定时 segLen(1) < arrive(4)，
@@ -520,15 +572,18 @@ public class TankAI : TankBase
     //      直线冲过去必顶墙（这就是注释卡墙检测后看到乱撞的来源）
     void ExecuteChase()
     {
-        if (target == null || path == null || path.Count == 0)
+        if (chaseTarget == null || path == null || path.Count == 0)
         {
             moveInput.x = 0f;
             moveInput.y = 0f;
             return;
         }
 
-        // 到达判定：靠近目标就停，等下次决策切换射击模式
-        if (Vector3.Distance(transform.position, target.position) < aiConfig.chaseArriveDistance)
+        // 到达判定：Chase 靠近战斗目标就停，等下次决策切射击；
+        // GetItem 不停——道具在格中心，必须走完 path（压到 Trigger 才算拾取），
+        // 提前 4 米停会停在车头够不着道具碰撞体的位置
+        if (action != AIAction.GetItem
+            && Vector3.Distance(transform.position, chaseTarget.position) < aiConfig.chaseArriveDistance)
         {
             moveInput.x = 0f;
             moveInput.y = 0f;

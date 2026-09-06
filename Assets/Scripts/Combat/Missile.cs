@@ -74,7 +74,6 @@ public class Missile : BulletBase
         // 兜底：导弹可能因转向限制甩出可走区域，先找回最近的网格位置再寻路
         if (!grid.IsWalkable(start, unitRadius))
         {
-            print("超出可走区域，重新寻路");
             Vector2Int? near = grid.ClosestWalkable(start, maxRecoverRadius, unitRadius);
             if (near == null)
             {

@@ -12,8 +12,10 @@ public enum Power
 public abstract class TankBase : MonoBehaviour
 {
     
-    [SerializeField] public Power status = Power.Normal;
+    // 当前武器；唯一写口 SetPower——Laser 蓄力期的瞄准预览线开关跟着它走
+    [SerializeField] private Power status = Power.Normal;
     protected Vector2 moveInput = new Vector2();
+    private AimLinePreview aimPreview; // Laser 时启用的弹道预览（组件平时失活）
     protected Rigidbody rb;
     [SerializeField] protected GameObject bulletPrefab;
     [SerializeField] protected GameObject laserPrefab;
@@ -93,13 +95,13 @@ public abstract class TankBase : MonoBehaviour
             else if(status == Power.Laser)
             {
                 Instantiate(laserPrefab, firePoint.position, firePoint.rotation);
-                status = Power.Normal;
+                SetPower(Power.Normal); // 一发消耗：用完即失去 Laser → 预览线关
             }
             else if(status == Power.Missile)
             {
                 GameObject missile = Instantiate(missilePrefab, firePoint.position + firePoint.forward * 0.5f, firePoint.rotation);
                 missile.GetComponent<Missile>().owner = gameObject;
-                status = Power.Normal;
+                SetPower(Power.Normal); // 换武器同样离开 Laser 状态
             }
         }
         
@@ -134,9 +136,27 @@ public abstract class TankBase : MonoBehaviour
     {
         rb = gameObject.GetComponent<Rigidbody>();
         ApplyUnitConfig();
+        // AimLinePreview 可能被失活（组件 enabled=false 不影响 GetComponentInChildren）
+        aimPreview = GetComponentInChildren<AimLinePreview>();
+        SetPower(status); // 同步初始武器（默认 Normal → 预览线关）
         InitPool();
         InitDirt();
     }
+
+    // 武器状态唯一写口：拾取（Item 调）与开火消耗（Fire 调）都走这里。
+    // Laser 蓄力期需要瞄准预览线（AimLinePreview 组件平时失活）：
+    // 持有即开、用掉或换成别的武器即关
+    public void SetPower(Power newPower)
+    {
+        status = newPower;
+        if (aimPreview != null)
+        {
+            aimPreview.Show(status == Power.Laser);
+        }
+    }
+
+    // 子类（TankAI 决策）只读当前武器
+    protected Power CurrentPower => status;
 
     // 手感参数只在 Init 读一次进缓存字段（Move/Fire 每帧热路径不查资产）
     void ApplyUnitConfig()

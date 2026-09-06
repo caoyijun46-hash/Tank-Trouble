@@ -29,15 +29,25 @@ public class PauseController : MonoBehaviour
     [Tooltip("暂停面板物体（PauseUI，含 PanelRenderer → Pause.uxml）")]
     [SerializeField] private GameObject pausePanel;
 
+    [Tooltip("常驻暂停按钮面板（PauseButtonUI，场景保持 inactive，启动时由本组件激活）")]
+    [SerializeField] private GameObject pauseButtonUI;
+
     [Tooltip("主菜单场景名（需在 Build Settings 注册）")]
     [SerializeField] private string menuSceneName = "Menu";
 
     void Awake()
     {
-        // 收编 UI 下全部面板（含 inactive 的 PauseUI）：谁被激活谁触发 reload
+        // 收编 UI 下全部面板（含 inactive 的 PauseUI/PauseButtonUI）：谁被激活谁触发 reload
         foreach (PanelRenderer p in GetComponentsInChildren<PanelRenderer>(true))
         {
             p.RegisterUIReloadCallback(OnUIReload);
+        }
+
+        // 常驻按钮与 HUD 面板同逻辑：场景保持 inactive，代码统一接管激活。
+        // 必须先注册完回调再激活（reload 回调要赶在首次加载前就位，见类头时序纪律）
+        if (pauseButtonUI != null)
+        {
+            pauseButtonUI.SetActive(true);
         }
     }
 

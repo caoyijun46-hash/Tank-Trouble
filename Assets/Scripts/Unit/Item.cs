@@ -14,7 +14,8 @@ public class Item : MonoBehaviour
     {
         if (other.CompareTag("Tank"))
         {
-            other.gameObject.GetComponent<TankBase>().status = itemType;
+            // 走 SetPower 而非直接写 status 字段：Laser 预览线开关跟随武器状态
+            other.gameObject.GetComponent<TankBase>().SetPower(itemType);
             Destroy(gameObject);
         }
     }

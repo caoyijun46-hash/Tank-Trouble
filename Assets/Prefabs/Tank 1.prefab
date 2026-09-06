@@ -47,7 +47,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AimLinePreview
   firePoint: {fileID: 7062099538363450800}
   line: {fileID: 1253638407043049978}
-  config: {fileID: 11400000, guid: 2c99a537dab28a242a7280685c68bfca, type: 2}
+  config: {fileID: 11400000, guid: 0760c8808d66adc498f5c041973f9680, type: 2}
   obstacleMask:
     serializedVersion: 2
     m_Bits: 183

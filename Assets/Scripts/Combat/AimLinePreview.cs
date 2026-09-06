@@ -23,6 +23,18 @@ public class AimLinePreview : MonoBehaviour
         DrawPreview();
     }
 
+    // 由 TankBase 按 Power.Laser 启停：开启 = 恢复逐帧绘制；
+    // 关闭只停 Update 不会抹掉 LineRenderer 已画的网格，必须清空线条，
+    // 否则 Laser 打完后预览线残留在原地
+    public void Show(bool on)
+    {
+        enabled = on;
+        if (!on && line != null)
+        {
+            line.positionCount = 0;
+        }
+    }
+
     void DrawPreview()
     {
         Vector3 dir = firePoint.forward;

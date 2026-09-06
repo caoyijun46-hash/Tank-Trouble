@@ -40,14 +40,14 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2451457376351977660}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cfb03f96cac66e844872c725e1d93b61, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AimLinePreview
   firePoint: {fileID: 7062099538363450800}
   line: {fileID: 1253638407043049978}
-  config: {fileID: 11400000, guid: 2c99a537dab28a242a7280685c68bfca, type: 2}
+  config: {fileID: 11400000, guid: 0760c8808d66adc498f5c041973f9680, type: 2}
   obstacleMask:
     serializedVersion: 2
     m_Bits: 183
