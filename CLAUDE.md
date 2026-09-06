@@ -13,7 +13,8 @@ Assets/Scripts/
 ├── Core/       游戏流程: GameManager + ScoreHud/PauseController(UI 总控)
 ├── Camera/     相机: FixedMapCamera
 ├── Audio/      音频: AudioManager(全局单例, 见下方音频纪律)
-└── Particle/   粒子: DestroyAfterDelay 等通用组件
+├── Particle/   粒子: DestroyAfterDelay 等通用组件
+└── Net/        联机: NetManager(传输/生命周期) + SnapshotProtocol(序列化) + InterpBuffer(插值) + NetSyncObject(同步对象)
 ```
 
 - 新增脚本先对号入座；只有"它属于哪个域"一条分类轴，基类跟子类同目录，不设 Base 杂物堆。
@@ -47,6 +48,15 @@ Assets/Scripts/
 
 - 助手不直接修改 `.unity` 场景文件；场景接线（挂组件/拖引用/摆物体）一律由用户在 Unity 编辑器完成，助手只给操作步骤。
 - 运行时按需生成的对象（墙/地板）由脚本在 Awake 创建，不进场景序列化。
+
+## 联机纪律（Net 域，阶段 1：主机权威 + 状态同步 + 客户端插值）
+
+- 客户端不拥有世界状态——它是"快照播放器"：只有插值缓冲，永远渲染主机已确认的过去位置（固有延迟 = 缓冲深度 × 快照间隔）。
+- 快照走不可靠管道（自描述、丢帧由下一条全量纠正）；命令/事件将来走可靠管道——可靠性按数据类型选，不是全局开关。
+- 插值进度按快照窗口时间跨度推进（两端时钟速率一致，无绝对时钟同步）；yaw 等周期量插值必须 LerpAngle。
+- 网络事件一律在主循环内轮询（UTP ScheduleUpdate + PopEvent），禁止阻塞等待。
+- 测试用 ParrelSync 双 Editor：主项目 = Host，clone = Client，回环 127.0.0.1。
+- 联机工作线的完整上下文与阶段规划见项目根《联机开发交接.md》；改 Net 代码前先读它（含 DataStreamWriter ref 等踩坑清单）。
 
 ## 验证流程
 
