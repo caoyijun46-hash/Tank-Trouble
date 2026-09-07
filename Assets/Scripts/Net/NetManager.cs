@@ -33,16 +33,21 @@ public class NetManager : MonoBehaviour
     [SerializeField] private ushort port = 7778; // 与参考脚本同端口（7777 实测常被占）
 
     [Header("同步")]
-    [Tooltip("快照间隔（秒）：20Hz = 0.05")]
+    [Tooltip("快照间隔（秒）：20Hz = 0.03")]
     [SerializeField, Range(0.01f, 0.2f)] private float snapshotInterval = 0.05f;
-    [Tooltip("同步对象（Host 采集 / Client 接收推送）")]
+    [Tooltip("Client：快照渲染载体（NetSyncObject 播放器；真坦克显示壳也挂它）")]
     [SerializeField] private NetSyncObject syncObject;
+    [Tooltip("Host：被遥控的模拟对象（RemoteTank / NetSyncObject）。Inspector 不能拖接口，字段放宽为任意组件，运行时 as ISyncHost")]
+    [SerializeField] private MonoBehaviour syncTarget;
+    private ISyncHost simHost; // syncTarget 的接口视图（null=未接遥控对象，联调允许）
 
     public bool IsHost => role == NetRole.Host;
 
     private NetworkDriver driver;
+    private NetworkPipeline reliable;                  // 可靠管道：事件类上行命令（Fire）专用
     private NativeList<NetworkConnection> serverConns; // Host：所有已接入客户端（不设单连接槽）
     private NetworkConnection connection;              // Client：到主机的连接
+    private bool connected;                            // Client：握手完成后才允许发命令（可靠发送依赖连接状态机）
     private float tickTimer;                           // 距上次广播的累计时间
     private float logTimer;                            // 心跳日志累计时间
     private uint seq;                                  // 主机发帧计数（进快照载荷，调试/统计用）
@@ -59,6 +64,14 @@ public class NetManager : MonoBehaviour
     void Start()
     {
         driver = NetworkDriver.Create();
+        // 可靠管道（阶段 2 起 Client 上行 Fire 事件用）。接收端对管道无感知——
+        // 只有发送端 BeginSend 带 pipe 才走可靠；Host 暂无发送需求，留待阶段 4
+        reliable = driver.CreatePipeline(typeof(ReliableSequencedPipelineStage));
+        simHost = syncTarget as ISyncHost;
+        if (IsHost && syncTarget != null && simHost == null)
+        {
+            Debug.LogWarning($"[Net] syncTarget 拖的对象没有实现 ISyncHost（当前是 {syncTarget.GetType().Name}），命令与采集将不起作用");
+        }
         if (IsHost)
         {
             // 先建连接列表再 bind：bind 失败（端口被占）也要能安全走完生命周期
@@ -123,15 +136,43 @@ public class NetManager : MonoBehaviour
             Debug.Log($"[Net] 客户端接入：{c}");
         }
 
+        // 消费已接入连接的事件（阶段 2 新增：客户端上行命令在这里收）。
+        // 阶段 1 不收是因为快照纯下行（我发你收）；现在客户端会主动发命令
+        for (int i = 0; i < serverConns.Length; i++)
+        {
+            if (!serverConns[i].IsCreated)
+            {
+                continue;
+            }
+            NetworkEvent.Type evt;
+            while ((evt = serverConns[i].PopEvent(driver, out var stream)) != NetworkEvent.Type.Empty)
+            {
+                if (evt == NetworkEvent.Type.Data)
+                {
+                    // 快照不会发向主机（它是下行消息），主机只可能收到命令——
+                    // 仍走 TryRead 的长度/type 防御，协议演进期安全
+                    if (CommandProtocol.TryRead(stream, out var cmd))
+                    {
+                        OnCommand(serverConns[i], cmd);
+                    }
+                }
+                else if (evt == NetworkEvent.Type.Disconnect)
+                {
+                    Debug.Log($"[Net] 客户端断开：{serverConns[i]}");
+                    serverConns[i] = default; // 正常断开能收尾；进程强退仍会留幽灵（见交接文档）
+                }
+            }
+        }
+
         // 固定节拍广播（unscaled：暂停菜单/慢放不影响网络节奏）
         tickTimer += Time.unscaledDeltaTime;
         if (tickTimer >= snapshotInterval)
         {
             tickTimer = 0f;
-            if (syncObject != null)
+            if (simHost != null)
             {
                 // 本 tick 只采一次姿态，向所有客户端广播同一份快照
-                var (x, z, yaw) = syncObject.CurrentPose();
+                var (x, z, yaw) = simHost.CurrentPose();
                 var snap = new SnapshotData
                 {
                     seq = seq++,
@@ -162,11 +203,21 @@ public class NetManager : MonoBehaviour
                     }
                 }
             }
-            // syncObject 未拖引用：无姿态可采，本 tick 跳过发送（tick 节奏照常）
+            // simHost 未接：无姿态可采，本 tick 跳过发送（tick 节奏照常）
         }
 
         // 心跳：必须放每帧路径上累计（不能在 tick 段内——非 tick 帧不累计会失真）
         LogHeartbeat();
+    }
+
+    // Host：上行命令分发。命令已由协议层完成解析，交给被遥控对象执行——
+    //   RemoteTank：Move 写输入/Fire 开火（真武器由主机世界裁决）
+    //   NetSyncObject（联调载体）：Move 驱动运动学
+    // Fire 细节在对象内（RemoteTank.Fire 自带冷却），这里不做 kind 判断——
+    // 未知 kind 也喂给对象（对象侧按需忽略），协议演进不堵在传输层
+    void OnCommand(NetworkConnection from, in CommandData cmd)
+    {
+        simHost?.ApplyCommand(cmd);
     }
 
     // 心跳：每秒报一次收发计数（联调定位用：计数不动 = 断在哪一段一目了然）。
@@ -204,6 +255,7 @@ public class NetManager : MonoBehaviour
         {
             if (cmd == NetworkEvent.Type.Connect)
             {
+                connected = true;
                 Debug.Log("[Net] 已连接主机");
             }
             else if (cmd == NetworkEvent.Type.Data)
@@ -218,10 +270,45 @@ public class NetManager : MonoBehaviour
             }
             else if (cmd == NetworkEvent.Type.Disconnect)
             {
+                connected = false;
                 Debug.Log("[Net] 与主机断开");
                 connection = default;
             }
         }
         LogHeartbeat(); // 每帧路径（连接建立后）
+    }
+
+    // 上行命令唯一发送入口（输入源 = 临时键盘模拟器，将来 = 远端坦克真实输入适配器，
+    // 产生方不关心管道——按 kind 在这选：Move=不可靠状态流，Fire=可靠事件流）
+    public bool SendCommand(in CommandData cmd)
+    {
+        if (!connection.IsCreated || !connected)
+        {
+            return false; // 握手未完成：可靠发送依赖连接状态机（MinimalReliable 验证结论）
+        }
+        if (cmd.kind == CommandKind.Move)
+        {
+            // 三参 BeginSend = 默认不可靠管道，与快照广播同通道语义
+            int err = driver.BeginSend(connection, out var w, CommandProtocol.MoveSize);
+            if (err != 0)
+            {
+                return false; // 失败静默跳过：下一条节拍会再试，状态流天然容错
+            }
+            CommandProtocol.WriteMove(ref w, cmd.seq, cmd.moveX, cmd.moveY);
+            driver.EndSend(w);
+            return true;
+        }
+        if (cmd.kind == CommandKind.Fire)
+        {
+            int err = driver.BeginSend(reliable, connection, out var w, CommandProtocol.FireSize);
+            if (err != 0)
+            {
+                return false;
+            }
+            CommandProtocol.WriteFire(ref w, cmd.seq);
+            driver.EndSend(w);
+            return true;
+        }
+        return false;
     }
 }

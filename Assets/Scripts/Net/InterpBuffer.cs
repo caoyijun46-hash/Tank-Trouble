@@ -11,7 +11,7 @@ using UnityEngine;
 public class InterpBuffer
 {
     readonly Queue<SnapshotData> queue = new Queue<SnapshotData>();
-    public int Depth { get; set; } = 3;
+    public int Depth { get; set; } = 4;
 
     SnapshotData? s0;  // 窗口起点
     SnapshotData? s1;  // 窗口终点（"未来端点"，必须先于渲染拿到）
