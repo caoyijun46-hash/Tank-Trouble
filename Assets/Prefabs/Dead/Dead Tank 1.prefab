@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2940236792023759051}
   - component: {fileID: 1253638407043049978}
+  - component: {fileID: 6481077935327520194}
   m_Layer: 7
   m_Name: Aim Line
   m_TagString: Untagged
@@ -142,6 +143,26 @@ LineRenderer:
   m_UseWorldSpace: 1
   m_Loop: 0
   m_ApplyActiveColorSpace: 1
+--- !u!114 &6481077935327520194
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2451457376351977660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfb03f96cac66e844872c725e1d93b61, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AimLinePreview
+  firePoint: {fileID: 7062099538363450800}
+  line: {fileID: 1253638407043049978}
+  config: {fileID: 11400000, guid: 0760c8808d66adc498f5c041973f9680, type: 2}
+  obstacleMask:
+    serializedVersion: 2
+    m_Bits: 183
+  normalColor: {r: 0, g: 1, b: 0, a: 1}
+  hitColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!1 &2696628350144686779
 GameObject:
   m_ObjectHideFlags: 0
@@ -453,6 +474,8 @@ GameObject:
   m_Component:
   - component: {fileID: 5714750667851795468}
   - component: {fileID: -4628507867356580916}
+  - component: {fileID: -4691290913033293766}
+  - component: {fileID: 8261622740638181314}
   m_Layer: 0
   m_Name: Dead Tank 1
   m_TagString: Tank
@@ -493,3 +516,40 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SnapshotPlayer
   bufferDepth: 3
+  explosionPrefab: {fileID: 1176145624114067509, guid: ec46c8c4a3cbc429382ee48bd9169b45, type: 3}
+--- !u!114 &-4691290913033293766
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8502888892767159392}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df690c05c8b4e454592099c77d28fffd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MotionDirt
+  dirtPrefab: {fileID: 4356800953600124292, guid: fb82dfb8d1c7044c69afd2486befecb3, type: 3}
+  dirtOffset: {x: 0, y: 0, z: -1}
+  threshold: 0.5
+--- !u!65 &8261622740638181314
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8502888892767159392}
+  m_Material: {fileID: 13400000, guid: 7b966ea27ba4ac54590878ce440c67c2, type: 2}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 3, y: 3, z: 4}
+  m_Center: {x: 0, y: 1.5, z: 0}

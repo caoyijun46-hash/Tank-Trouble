@@ -46,6 +46,12 @@ public class NetManager : MonoBehaviour
     [SerializeField, Range(0.01f, 0.2f)] private float snapshotInterval = 0.03f;
     private ISyncHost avatar; // 联机化身：client 玩家的车（1v1 单化身，GameManager 联机分支注册）
 
+    // 对局事件下行出口（Client 端收 host 广播后触发；UI 组件判空订阅）。
+    // host 端不收这些 type（对局事件只 host→client），事件在 host 永不触发。
+    // RoundEnd 里的 winner 字段已解析但暂不外传——胜利横幅后置，届时再扩事件
+    public event System.Action<int, int> ScoreSynced; // 比分 (score1, score2)：RoundEnd/RoundStart 共用
+    public event System.Action<bool> PauseSynced;     // host 暂停状态（true=暂停中）
+
     [Header("Client 实体壳")]
     [Tooltip("壳 prefab 表，下标 = typeKey（与玩法 prefab 上 NetSyncEntity.typeKey 对齐）：0=坦克 1=道具 2=子弹 3=导弹")]
     [SerializeField] private SnapshotPlayer[] shellPrefabs;
@@ -53,6 +59,7 @@ public class NetManager : MonoBehaviour
     [SerializeField] private Transform shellRoot;
     [Tooltip("壳超时清理（秒）：此间无快照即删。Despawn 可靠几乎不丢，此兜底防断线/卸载残壳")]
     [SerializeField, Range(1f, 10f)] private float shellTimeout = 3f;
+    private FixedMapCamera clientCam; // 惰性查找缓存：结算特写执行（RoundEnd/Start 带机位）
 
     [Header("迷宫同构（联机调试期）")]
     [Tooltip("Host：勾上后按 R 键随机重开一张迷宫并广播（GameManager 换局接入前的联调驱动，接入后删）")]
@@ -254,7 +261,8 @@ public class NetManager : MonoBehaviour
                         for (int e = 0; e < entities.Count; e++)
                         {
                             var (x, z, yaw) = entities[e].Pose();
-                            SnapshotProtocol.WriteEntity(ref w, entities[e].SyncId, x, z, yaw);
+                            SnapshotProtocol.WriteEntity(ref w, entities[e].SyncId, x, z, yaw,
+                                entities[e].PowerByte);
                         }
                         driver.EndSend(w);
                         sentCount++;
@@ -332,6 +340,82 @@ public class NetManager : MonoBehaviour
         }
     }
 
+    // ---------- Host：对局事件广播（比分/暂停） ----------
+
+    // 三条发送 API 由玩法/UI 层调用（GameManager 判局末/开局、PauseController
+    // 开/关暂停），判空调用即可——单机无本组件（Mode!=Online 休眠不设 Instance）
+    // 自然静默。可靠性：一次性裁决丢不得 → reliable。
+    // 写法照 BroadcastMapParams 直接循环（DataStreamWriter 是 ref struct，
+    // 不能进 lambda/闭包，重复三次换可读性）
+
+    // 结算特写机位随 RoundEnd 下发：camPoint 为 host 相机将 Focus 的阵亡点
+    //（host 判定，client 只执行——FixedMapCamera.Focus 盯点）
+    public void HostSendRoundEnd(int winner, int s1, int s2, bool hasCamPoint, float camX, float camZ)
+    {
+        if (!IsHost || !driver.IsCreated || !serverConns.IsCreated)
+        {
+            return;
+        }
+        for (int i = 0; i < serverConns.Length; i++)
+        {
+            if (!serverConns[i].IsCreated)
+            {
+                continue;
+            }
+            int err = driver.BeginSend(reliable, serverConns[i], out var w, RoundProtocol.RoundEndSize);
+            if (err == 0)
+            {
+                RoundProtocol.WriteRoundEnd(ref w, winner, s1, s2, hasCamPoint, camX, camZ);
+                driver.EndSend(w);
+            }
+        }
+        Debug.Log($"[Net][Host] RoundEnd：胜者 {winner}，比分 {s1}:{s2}，机位 {(hasCamPoint ? $"({camX:F0},{camZ:F0})" : "全图")}");
+    }
+
+    public void HostSendRoundStart(int s1, int s2)
+    {
+        if (!IsHost || !driver.IsCreated || !serverConns.IsCreated)
+        {
+            return;
+        }
+        for (int i = 0; i < serverConns.Length; i++)
+        {
+            if (!serverConns[i].IsCreated)
+            {
+                continue;
+            }
+            int err = driver.BeginSend(reliable, serverConns[i], out var w, RoundProtocol.RoundStartSize);
+            if (err == 0)
+            {
+                RoundProtocol.WriteRoundStart(ref w, s1, s2);
+                driver.EndSend(w);
+            }
+        }
+        Debug.Log($"[Net][Host] RoundStart：比分 {s1}:{s2}");
+    }
+
+    public void HostSendPause(bool paused)
+    {
+        if (!IsHost || !driver.IsCreated || !serverConns.IsCreated)
+        {
+            return;
+        }
+        for (int i = 0; i < serverConns.Length; i++)
+        {
+            if (!serverConns[i].IsCreated)
+            {
+                continue;
+            }
+            int err = driver.BeginSend(reliable, serverConns[i], out var w, RoundProtocol.PauseSize);
+            if (err == 0)
+            {
+                RoundProtocol.WritePause(ref w, paused);
+                driver.EndSend(w);
+            }
+        }
+        Debug.Log($"[Net][Host] 暂停广播：{paused}");
+    }
+
     // ---------- Host：实体注册表（Spawn/Despawn + 采集源） ----------
 
     // NetSyncEntity.OnEnable 调：进注册表（每 tick 采集进帧）+ 广播 Spawn。
@@ -363,6 +447,7 @@ public class NetManager : MonoBehaviour
     // NetSyncEntity.OnDisable 调：出表 + 归还 id + 广播 Despawn。
     // 池化子弹 InitPool 的 Instantiate→SetActive(false) 会触发"注册后立即注销"
     // 一次（瞬时噪音，client 端壳无姿态在视野外销毁，无视觉影响——不为它做抑制）
+    // despawn reason 跟随击杀标记：Die 走过的实体 → client 放爆炸；清场/池化 → 静默
     public void HostUnregisterEntity(NetSyncEntity e)
     {
         if (!IsHost)
@@ -374,7 +459,8 @@ public class NetManager : MonoBehaviour
             return; // 非注册态注销（含池化瞬时注册又停用的竞态边缘）静默
         }
         idUsed[e.SyncId] = false;
-        BroadcastDespawn(e.SyncId);
+        byte reason = e.Killed ? EntityProtocol.DespawnKilled : EntityProtocol.DespawnNormal;
+        BroadcastDespawn(e.SyncId, reason);
     }
 
     byte? AllocId()
@@ -403,7 +489,7 @@ public class NetManager : MonoBehaviour
         Debug.Log($"[Net][Host] 实体出生：id={e.SyncId} type={e.TypeKey} {e.name}（表内 {entities.Count}）");
     }
 
-    void BroadcastDespawn(byte id)
+    void BroadcastDespawn(byte id, byte reason)
     {
         if (!driver.IsCreated)
         {
@@ -419,11 +505,11 @@ public class NetManager : MonoBehaviour
             int err = driver.BeginSend(reliable, serverConns[i], out var w, EntityProtocol.DespawnSize);
             if (err == 0)
             {
-                EntityProtocol.WriteDespawn(ref w, id);
+                EntityProtocol.WriteDespawn(ref w, id, reason);
                 driver.EndSend(w);
             }
         }
-        Debug.Log($"[Net][Host] 实体销毁：id={id}（表内 {entities.Count}）");
+        Debug.Log($"[Net][Host] 实体销毁：id={id} reason={reason}（表内 {entities.Count}）");
     }
 
     // 单条连接的 Spawn 发送（BroadcastSpawn 与 accept 补发共用）
@@ -512,9 +598,30 @@ public class NetManager : MonoBehaviour
                         }
                         break;
                     case EntityProtocol.TypeDespawn:
-                        if (EntityProtocol.TryReadDespawn(stream, out var dId))
+                        if (EntityProtocol.TryReadDespawn(stream, out var dId, out var dReason))
                         {
-                            HandleDespawn(dId);
+                            HandleDespawn(dId, dReason);
+                        }
+                        break;
+                    case RoundProtocol.TypeRoundEnd:
+                        if (RoundProtocol.TryReadRoundEnd(stream, out _, out var rs1, out var rs2,
+                                out var hasCam, out var camX, out var camZ))
+                        {
+                            ScoreSynced?.Invoke(rs1, rs2);
+                            ApplyRoundEndCam(hasCam, camX, camZ);
+                        }
+                        break;
+                    case RoundProtocol.TypeRoundStart:
+                        if (RoundProtocol.TryReadRoundStart(stream, out var s1, out var s2))
+                        {
+                            ScoreSynced?.Invoke(s1, s2);
+                            ApplyRoundStartCam();
+                        }
+                        break;
+                    case RoundProtocol.TypePause:
+                        if (RoundProtocol.TryReadPause(stream, out var paused))
+                        {
+                            PauseSynced?.Invoke(paused);
                         }
                         break;
                 }
@@ -564,13 +671,13 @@ public class NetManager : MonoBehaviour
         recvCount++;
         for (int i = 0; i < count; i++)
         {
-            if (!SnapshotProtocol.TryReadEntity(ref stream, out var id, out var x, out var z, out var yaw))
+            if (!SnapshotProtocol.TryReadEntity(ref stream, out var id, out var x, out var z, out var yaw, out var power))
             {
                 break; // 截断帧：已读的照常推进，剩余丢弃（不炸，长度防御纪律）
             }
             if (slots.TryGetValue(id, out var slot))
             {
-                slot.shell.Push(seq, hostTime, x, z, yaw);
+                slot.shell.Push(seq, hostTime, x, z, yaw, power);
                 slot.lastSeen = Time.unscaledTime;
                 slots[id] = slot;
             }
@@ -599,18 +706,30 @@ public class NetManager : MonoBehaviour
         Debug.Log($"[Net][Client] Spawn：id={id} type={typeKey}（壳槽 {slots.Count}）");
     }
 
-    void HandleDespawn(byte id)
+    void HandleDespawn(byte id, byte reason)
     {
         if (!slots.TryGetValue(id, out var slot))
         {
             return; // 重复/未知 despawn 静默（壳可能已被超时清理或从未 Spawn）
         }
         slots.Remove(id);
-        if (slot.shell != null)
+        if (slot.shell == null)
         {
-            Destroy(slot.shell.gameObject);
+            return;
         }
-        Debug.Log($"[Net][Client] Despawn：id={id}（壳槽 {slots.Count}）");
+        // 击杀演出跟随 despawn reason：被击杀（host Die 标记）才放爆炸；
+        // 换局清场/池化 reason=普通 → 静默删壳（与 host 死因分流一致，无清场烟花）。
+        // 爆炸 prefab 按壳配对（SnapshotPlayer.explosionPrefab，阵营分色在壳资产上）
+        if (reason == EntityProtocol.DespawnKilled)
+        {
+            var boom = slot.shell.ExplosionPrefab;
+            if (boom != null)
+            {
+                Instantiate(boom, slot.shell.transform.position, Quaternion.identity);
+            }
+        }
+        Destroy(slot.shell.gameObject);
+        Debug.Log($"[Net][Client] Despawn：id={id} reason={reason}（壳槽 {slots.Count}）");
     }
 
     // 超时兜底：壳长时间无快照（断线/despawn 丢失的极端）则删——despawn 走可靠
@@ -640,8 +759,45 @@ public class NetManager : MonoBehaviour
         }
         foreach (byte id in expired)
         {
-            HandleDespawn(id);
+            HandleDespawn(id, EntityProtocol.DespawnNormal); // 本地超时清理：无击杀演出
         }
+    }
+
+    // ---------- Client：结算特写机位执行（host 裁决，client 复刻） ----------
+
+    // RoundEnd 到达：host 相机正 Focus 阵亡点（FixedMapCamera.Focus 内部 y=45 固定，
+    // 传 xz 即可）。相机缓动走 unscaledDeltaTime，host 慢放下两端镜头同速趋近。
+    // 无机位点（camFlag=0，host 自己也没特写）→ 不动相机
+    void ApplyRoundEndCam(bool hasCamPoint, float camX, float camZ)
+    {
+        if (!hasCamPoint)
+        {
+            return;
+        }
+        var cam = FindClientCam();
+        if (cam != null)
+        {
+            cam.Focus(new Vector3(camX, 0f, camZ));
+        }
+    }
+
+    // RoundStart 到达：host 新局回全图 → client 同步回（清掉特写状态）
+    void ApplyRoundStartCam()
+    {
+        var cam = FindClientCam();
+        if (cam != null)
+        {
+            cam.WatchFullMap();
+        }
+    }
+
+    FixedMapCamera FindClientCam()
+    {
+        if (clientCam == null)
+        {
+            clientCam = FindAnyObjectByType<FixedMapCamera>();
+        }
+        return clientCam; // 场景没摆相机：静默（UI 侧也可缺）
     }
 
     // 上行命令唯一发送入口（输入源 = 临时键盘模拟器，将来 = 远端坦克真实输入适配器，

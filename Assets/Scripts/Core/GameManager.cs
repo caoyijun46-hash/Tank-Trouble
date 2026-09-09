@@ -122,6 +122,8 @@ public class GameManager : MonoBehaviour
         roundNumber = 1;
         SpawnRound();
         state = RoundState.Playing;
+        // 联机：开局广播当前比分（0:0），client 对账用。判空：单机静默
+        NetManager.Instance?.HostSendRoundStart(0, 0);
         Debug.Log($"—— [{ModeLabel}] 第 {roundNumber} 局开始（迷宫 {maze.cols}×{maze.rows}）——");
     }
 
@@ -183,6 +185,13 @@ public class GameManager : MonoBehaviour
         Time.timeScale = roundConfig.slowMotion;
         endTimer = roundConfig.restartDelay;
         FocusRoundEnd(aliveTeams); // 相机特写（机位由"谁赢了/死在哪"决定）
+
+        // 联机：胜负裁决广播（比分已加完，带全量 + 结算特写机位=最后阵亡点）。
+        // 判空：单机无 NetManager 静默。hasCam 与 host 相机机位同源（FocusRoundEnd
+        // 已执行，lastDeathPos 已定）：client 端按同一参数复刻特写
+        bool hasCam = lastDeathPos.HasValue;
+        NetManager.Instance?.HostSendRoundEnd(winnerTeam, GetScore(TeamOne), GetScore(TeamTwo),
+            hasCam, hasCam ? lastDeathPos.Value.x : 0f, hasCam ? lastDeathPos.Value.z : 0f);
     }
 
     // 结算机位：有胜者 → 盯住存活者（它慢放中可能还在移动）；平局 → 盯
@@ -307,6 +316,8 @@ public class GameManager : MonoBehaviour
         SpawnRound();
         Time.timeScale = 1f; // 生成完成才恢复世界运行
         state = RoundState.Playing;
+        // 联机：新局广播当前比分（跨局累计对账）。判空：单机静默
+        NetManager.Instance?.HostSendRoundStart(GetScore(TeamOne), GetScore(TeamTwo));
         Debug.Log($"—— [{ModeLabel}] 第 {roundNumber} 局开始（迷宫 {maze.cols}×{maze.rows}）——");
     }
 

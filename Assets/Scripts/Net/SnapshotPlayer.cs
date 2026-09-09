@@ -16,9 +16,20 @@ public class SnapshotPlayer : MonoBehaviour
     [Tooltip("缓冲深度（快照帧数）：延迟预算旋钮——越深越抗抖动、画面越滞后")]
     [SerializeField, Range(1, 10)] private int bufferDepth = 3;
 
+    [Header("死亡演出")]
+    [Tooltip("本壳对应的击杀爆炸 prefab（与 host 原型阵营分色配对：如 Dead Tank→Explosion_Red、Dead Tank 1→Explosion_Orange）。留空 = 无爆炸（子弹/道具壳）")]
+    [SerializeField] private GameObject explosionPrefab;
+    public GameObject ExplosionPrefab => explosionPrefab;
+
     private readonly InterpBuffer buffer = new InterpBuffer();
     private bool hasRenderPose;
     private float localY; // 快照无 y 轴（实体都在 y=0 平面），壳高度固定为预制体初始 y
+
+    // 武器状态（离散、不插值）：每帧快照的最新值；Laser 时驱动瞄准预览线。
+    // 所有坦克壳都画自己的线——与单机/本地双人"同屏可见对方瞄准线"的哲学一致
+    public byte LastPower { get; private set; }
+    private AimLinePreview aimPreview; // 惰性缓存（子物体 Aim Line 上的预览组件）
+    private bool aimSearched;
 
     public byte SyncId { get; private set; }
     public bool Bound { get; private set; }
@@ -27,6 +38,15 @@ public class SnapshotPlayer : MonoBehaviour
     {
         buffer.Depth = bufferDepth;
         localY = transform.position.y;
+        // 初始禁画：壳上的 AimLinePreview 默认 enabled 会自己每帧画线（host 端由
+        // SetPower 出生时先 Show(false) 压住）。壳出生 power=Normal，ApplyPower 只在
+        // 变化时驱动——这里必须先显式关一次，等快照 power 变化再开
+        aimPreview = GetComponentInChildren<AimLinePreview>();
+        aimSearched = true;
+        if (aimPreview != null)
+        {
+            aimPreview.Show(false);
+        }
     }
 
     /// <summary>Spawn 事件后由 NetManager 调用，绑定注册表 id</summary>
@@ -45,8 +65,8 @@ public class SnapshotPlayer : MonoBehaviour
         hasRenderPose = true;
     }
 
-    /// <summary>NetManager 实体帧分发：把本对象姿态推进插值缓冲</summary>
-    public void Push(uint seq, float hostTime, float x, float z, float yaw)
+    /// <summary>NetManager 实体帧分发：姿态进插值缓冲；power 是离散状态直接用最新值</summary>
+    public void Push(uint seq, float hostTime, float x, float z, float yaw, byte power)
     {
         buffer.Push(new SnapshotData
         {
@@ -55,7 +75,30 @@ public class SnapshotPlayer : MonoBehaviour
             x = x,
             z = z,
             yaw = yaw,
+            power = power,
         });
+        ApplyPower(power);
+    }
+
+    // 武器变化驱动瞄准预览线：与 host 端 TankBase.SetPower 开关逻辑同源
+    //（Laser 持有才画、发射/换武器即关）。查找一次后锁定（含 null：子弹/道具
+    // 壳无预览组件不再查）
+    void ApplyPower(byte power)
+    {
+        if (power == LastPower)
+        {
+            return;
+        }
+        LastPower = power;
+        if (!aimSearched)
+        {
+            aimPreview = GetComponentInChildren<AimLinePreview>();
+            aimSearched = true;
+        }
+        if (aimPreview != null)
+        {
+            aimPreview.Show(power == (byte)Power.Laser);
+        }
     }
 
     void LateUpdate()
@@ -66,11 +109,25 @@ public class SnapshotPlayer : MonoBehaviour
             transform.position = new Vector3(p.x, localY, p.z);
             transform.rotation = Quaternion.Euler(0f, p.yaw, 0f);
             hasRenderPose = true;
+            DbgLog();
         }
         else if (!hasRenderPose)
         {
             // 首帧无数据：把对象挪到视野外的原点待命，避免闪现在场景默认位置
             transform.position = new Vector3(0f, -100f, 0f);
         }
+    }
+
+    // 临时诊断（阶跃定位后删）：打印插值窗口内部状态
+    private float dbgTimer;
+    void DbgLog()
+    {
+        dbgTimer += Time.unscaledDeltaTime;
+        if (dbgTimer < 0.3f)
+        {
+            return;
+        }
+        dbgTimer = 0f;
+        Debug.Log($"[IP][{name}] span={buffer.DbgSpan:F4} prog={buffer.DbgProgress:F2} queue={buffer.DbgQueueCount} frozen={buffer.DbgFrozen} pos={transform.position:F1}");
     }
 }

@@ -12,13 +12,21 @@
 //
 // 消息字节布局（与快照同一 UDP 流，靠 type 分派；手写读写，无 JSON）：
 //   Spawn   [0] type=3  [1] id  [2] typeKey  [3..14] x/z/yaw float×3      = 15B
-//   Despawn [0] type=4  [1] id                                            =  2B
+//   Despawn [0] type=4  [1] id  [2] reason                                  =  3B
+//
+// Despawn.reason 区分"为什么消失"：host 端被击杀(Die 放爆炸)与换局清场(裸
+// Destroy 不放烟花)是刻意的死因分流；client 端演出跟随——击杀才放爆炸粒子，
+// 清场/池化静默删壳。超时清理等 client 本地删壳一律按普通 reason 处理
 public static class EntityProtocol
 {
     public const byte TypeSpawn = 3;
     public const byte TypeDespawn = 4;
     public const int SpawnSize = 15;
-    public const int DespawnSize = 2;
+    public const int DespawnSize = 3;
+
+    // reason 取值
+    public const byte DespawnNormal = 0; // 清场/池化停用/主动销毁：无死亡演出
+    public const byte DespawnKilled = 1; // 被击杀：client 放爆炸
 
     // writer 必须 ref 传递！DataStreamWriter 是 struct，按值传进方法后写入推进的
     // 是"拷贝"的位置游标 → EndSend 发出 0 字节空包。这是联机历史根因，勿再犯
@@ -33,10 +41,11 @@ public static class EntityProtocol
         w.WriteFloat(yaw);
     }
 
-    public static void WriteDespawn(ref Unity.Collections.DataStreamWriter w, byte id)
+    public static void WriteDespawn(ref Unity.Collections.DataStreamWriter w, byte id, byte reason)
     {
         w.WriteByte(TypeDespawn);
         w.WriteByte(id);
+        w.WriteByte(reason);
     }
 
     // 长度防御照抄 CommandProtocol：不足最小长度直接 false，不在流上硬读——
@@ -63,9 +72,10 @@ public static class EntityProtocol
         return true;
     }
 
-    public static bool TryReadDespawn(Unity.Collections.DataStreamReader r, out byte id)
+    public static bool TryReadDespawn(Unity.Collections.DataStreamReader r, out byte id, out byte reason)
     {
         id = 0;
+        reason = DespawnNormal;
         if (r.Length < DespawnSize)
         {
             return false;
@@ -75,6 +85,7 @@ public static class EntityProtocol
             return false;
         }
         id = r.ReadByte();
+        reason = r.ReadByte();
         return true;
     }
 }

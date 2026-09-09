@@ -9,6 +9,8 @@ public struct SnapshotData
     public float hostTime; // 主机 Time.unscaledTime（秒）
     public float x, z;    // 位置（XZ 平面；所有同步实体都在 y=0 平面运动）
     public float yaw;     // 绕 Y 朝向（度）
+    public byte power;    // 武器状态（Power enum byte 化）。离散状态不参与插值——
+                         // 插值窗口推进不碰它，槽渲染时直接用最新值
 }
 
 // 消息字节布局（手写读写，无 JSON——体积小、无 GC、字节序可控）：
@@ -16,16 +18,17 @@ public struct SnapshotData
 //   [1..4]     seq: uint
 //   [5..8]     hostTime: float
 //   [9]        count: byte  本帧实体数（≤255）
-//   [10..]     每实体 13B: id(1) + x(4) + z(4) + yaw(4)
+//   [10..]     每实体 14B: id(1) + x(4) + z(4) + yaw(4) + power(1)
 //
 // 注意：id 是实体在 host 注册表的身份，跨帧稳定；对象出生/销毁走独立的
 // Spawn/Despawn 可靠事件（EntityProtocol），帧只承载姿态——快照是状态流可丢帧，
-// Spawn/Despawn 是一次性事件丢不得，可靠性按数据类型选
+// Spawn/Despawn 是一次性事件丢不得，可靠性按数据类型选。
+// power 是离散武器状态（非姿态）：client 不插值它，直接用每帧最新值
 public static class SnapshotProtocol
 {
     public const byte TypeSnapshot = 0;
     public const int FrameHeaderSize = 10;      // type+seq+hostTime+count
-    public const int EntityBodySize = 13;       // id+x/z/yaw
+    public const int EntityBodySize = 14;       // id+x/z/yaw+power
     public static int FrameSize(int count) => FrameHeaderSize + EntityBodySize * count;
 
     // writer 必须 ref 传递！DataStreamWriter 是 struct，按值传进方法后，
@@ -40,12 +43,13 @@ public static class SnapshotProtocol
         w.WriteByte(count);
     }
 
-    public static void WriteEntity(ref Unity.Collections.DataStreamWriter w, byte id, float x, float z, float yaw)
+    public static void WriteEntity(ref Unity.Collections.DataStreamWriter w, byte id, float x, float z, float yaw, byte power)
     {
         w.WriteByte(id);
         w.WriteFloat(x);
         w.WriteFloat(z);
         w.WriteFloat(yaw);
+        w.WriteByte(power);
     }
 
     // 读帧头：先判最小长度（10B）再验 type；长度不足直接 false，不在流上硬读——
@@ -75,9 +79,10 @@ public static class SnapshotProtocol
 
     // 读单个实体条目（调用方先读头、按 count 循环调用；每条前再判剩余长度，
     // 半包/截断帧走到哪丢到哪，不炸）。ref 原因同上：跨函数共享读游标
-    public static bool TryReadEntity(ref Unity.Collections.DataStreamReader r, out byte id, out float x, out float z, out float yaw)
+    public static bool TryReadEntity(ref Unity.Collections.DataStreamReader r, out byte id, out float x, out float z, out float yaw, out byte power)
     {
         id = 0;
+        power = 0;
         x = z = yaw = 0f;
         if (r.Length < EntityBodySize)
         {
@@ -87,6 +92,7 @@ public static class SnapshotProtocol
         x = r.ReadFloat();
         z = r.ReadFloat();
         yaw = r.ReadFloat();
+        power = r.ReadByte();
         return true;
     }
 }

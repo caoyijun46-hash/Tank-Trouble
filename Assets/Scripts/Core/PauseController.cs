@@ -35,6 +35,10 @@ public class PauseController : MonoBehaviour
     [Tooltip("主菜单场景名（需在 Build Settings 注册）")]
     [SerializeField] private string menuSceneName = "Menu";
 
+    // 暂停权只属于 host：联机 client 无暂停入口（不激活暂停按钮、拦截一切暂停动作，
+    // 只把 PauseMenuUI 当 host 暂停的只读遮罩）。单机无 NetManager → 视为可暂停
+    bool CanPause => NetManager.Instance == null || NetManager.Instance.IsHost;
+
     void Awake()
     {
         // 收编 UI 下全部面板（含 inactive 的 PauseUI/PauseButtonUI）：谁被激活谁触发 reload
@@ -42,21 +46,44 @@ public class PauseController : MonoBehaviour
         {
             p.RegisterUIReloadCallback(OnUIReload);
         }
+    }
 
-        // 常驻按钮与 HUD 面板同逻辑：场景保持 inactive，代码统一接管激活。
-        // 必须先注册完回调再激活（reload 回调要赶在首次加载前就位，见类头时序纪律）
-        if (pauseButtonUI != null)
+    void Start()
+    {
+        // 暂停按钮激活放 Start 而非 Awake：本组件执行序(-200)早于 NetManager.Awake，
+        // Awake 阶段判 CanPause 会误读 Instance==null（把 client 当 host）
+        // client 端（!CanPause）不激活暂停按钮——联机暂停权在 host。
+        // 回调在 Awake 已全部注册，此刻激活不会错过首次 reload
+        if (CanPause && pauseButtonUI != null)
         {
             pauseButtonUI.SetActive(true);
+        }
+
+        // client 端：host 的暂停广播 → 显示只读遮罩（纯呈现，不动 timeScale——
+        // 壳无新快照自然冻结，硬同步有断线致永久卡死的风险）。host 端不收该事件
+        if (NetManager.Instance != null)
+        {
+            NetManager.Instance.PauseSynced += ShowRemotePause;
         }
     }
 
     void OnDestroy()
     {
+        if (NetManager.Instance != null)
+        {
+            NetManager.Instance.PauseSynced -= ShowRemotePause;
+        }
         foreach (PanelRenderer p in GetComponentsInChildren<PanelRenderer>(true))
         {
             p.UnregisterUIReloadCallback(OnUIReload);
         }
+    }
+
+    // host 暂停广播 → client 显示 PauseMenuUI 只读遮罩；继续 → 关闭。
+    // 不碰 timeScale：client 画面因无新快照自然冻结（unscaled 插值缓冲耗尽停在端点）
+    void ShowRemotePause(bool paused)
+    {
+        pausePanel.SetActive(paused);
     }
 
     // reload 重建整棵树 → 重新绑定；Query 不到的元素（别的面板的）自然跳过
@@ -72,6 +99,22 @@ public class PauseController : MonoBehaviour
         Bind(root, "Menu", GoMenu);       // 回主菜单
 
         BindVolume(root); // 音量滑杆（音频收口也走本回调）
+
+        // client 端 PauseMenuUI 只作只读遮罩：把操作按钮隐藏，避免"点了没反应"的误导
+        if (!CanPause)
+        {
+            HideButton(root, "Continue");
+            HideButton(root, "Restart");
+            HideButton(root, "Menu");
+        }
+    }
+
+    static void HideButton(VisualElement root, string name)
+    {
+        if (root.Q<Button>(name) is { } button)
+        {
+            button.style.display = DisplayStyle.None;
+        }
     }
 
     // 点击音必须绑进 clicked 回调本身、与动作同点触发：
@@ -108,6 +151,11 @@ public class PauseController : MonoBehaviour
 
     void Open()
     {
+        // 暂停权只属 host（client 无按钮，此处防御性拦截）
+        if (!CanPause)
+        {
+            return;
+        }
         // 结算定格（RoundFrozen）期间禁开暂停：定格只有 3 秒且到点自动
         // 重开，重开协程恢复 timeScale 会与暂停打架——出现"遮罩挂着但
         // 世界已运行"的半暂停，所以这期间直接忽略暂停请求
@@ -117,17 +165,27 @@ public class PauseController : MonoBehaviour
         }
         pausePanel.SetActive(true);
         Time.timeScale = 0f;
+        NetManager.Instance?.HostSendPause(true); // 判空：单机无 NetManager 静默
     }
 
     void Continue()
     {
+        if (!CanPause)
+        {
+            return;
+        }
         pausePanel.SetActive(false);
         Time.timeScale = 1f;
+        NetManager.Instance?.HostSendPause(false);
     }
 
     // 整场重来：先关面板，GameManager.ResetMatch 自己会恢复 timeScale
     void Restart()
     {
+        if (!CanPause)
+        {
+            return;
+        }
         pausePanel.SetActive(false);
         if (GameManager.Instance != null)
         {
@@ -137,6 +195,10 @@ public class PauseController : MonoBehaviour
 
     void GoMenu()
     {
+        if (!CanPause)
+        {
+            return;
+        }
         Time.timeScale = 1f; // Menu 场景没有 GameManager 兜底，先恢复再说
         SceneManager.LoadScene(menuSceneName);
     }

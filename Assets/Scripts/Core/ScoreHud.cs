@@ -39,6 +39,12 @@ public class ScoreHud : MonoBehaviour
     private string prefixP1;
     private string prefixP2;
 
+    // 双数据源：host/单机有 GameManager → 本地读分；联机 client 无 GameManager →
+    // 比分来自 NetManager 下行事件（host 权威）。两路不会同时活：host 不收对局事件
+    private int netS1;
+    private int netS2;
+    private bool hasNetScore;
+
     void Awake()
     {
         // 两玩家槽面板（MainDoubleUI）服务一切"对手是人"的模式：Double 与 Online；
@@ -72,6 +78,12 @@ public class ScoreHud : MonoBehaviour
         {
             GameManager.Instance.ScoresUpdated += Refresh;
         }
+        // 联机 client（无 GameManager）：比分由网络事件推送。判空：
+        // host/单机（NetManager 休眠或 host 角色不收下行事件）订阅了也不会触发
+        if (NetManager.Instance != null)
+        {
+            NetManager.Instance.ScoreSynced += OnScoreSynced;
+        }
         Refresh();
     }
 
@@ -81,10 +93,22 @@ public class ScoreHud : MonoBehaviour
         {
             GameManager.Instance.ScoresUpdated -= Refresh;
         }
+        if (NetManager.Instance != null)
+        {
+            NetManager.Instance.ScoreSynced -= OnScoreSynced;
+        }
         if (activePanel != null)
         {
             activePanel.UnregisterUIReloadCallback(OnUIReload);
         }
+    }
+
+    void OnScoreSynced(int s1, int s2)
+    {
+        netS1 = s1;
+        netS2 = s2;
+        hasNetScore = true;
+        Refresh();
     }
 
     // reload 后整棵树是新的：重新查两个 Label，并从模板文本记下前缀
@@ -110,17 +134,21 @@ public class ScoreHud : MonoBehaviour
 
     void Refresh()
     {
-        if (GameManager.Instance == null)
-        {
-            return;
-        }
+        // 数据源二选一：本地 GameManager（host/单机）优先；联机 client 用网络缓存。
+        // 面板未激活/首次 reload 前 Label 为 null，幂等跳过
+        int s1 = GameManager.Instance != null
+            ? GameManager.Instance.GetScore(GameManager.TeamOne)
+            : (hasNetScore ? netS1 : 0);
+        int s2 = GameManager.Instance != null
+            ? GameManager.Instance.GetScore(GameManager.TeamTwo)
+            : (hasNetScore ? netS2 : 0);
         if (scoreP1 != null)
         {
-            scoreP1.text = prefixP1 + GameManager.Instance.GetScore(GameManager.TeamOne);
+            scoreP1.text = prefixP1 + s1;
         }
         if (scoreP2 != null)
         {
-            scoreP2.text = prefixP2 + GameManager.Instance.GetScore(GameManager.TeamTwo);
+            scoreP2.text = prefixP2 + s2;
         }
     }
 }

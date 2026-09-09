@@ -158,6 +158,10 @@ public abstract class TankBase : MonoBehaviour
     // 子类（TankAI 决策）只读当前武器
     protected Power CurrentPower => status;
 
+    // 当前武器公开只读（联机采集进快照：client 壳按它驱动瞄准线/武器呈现）。
+    // 仅读不改——唯一写口仍是 SetPower
+    public Power Weapon => status;
+
     // 手感参数只在 Init 读一次进缓存字段（Move/Fire 每帧热路径不查资产）
     void ApplyUnitConfig()
     {
@@ -190,9 +194,12 @@ public abstract class TankBase : MonoBehaviour
     }
 
     // 被击杀的唯一入口：死亡爆炸 + 销毁。子弹命中走这里；GameManager 换局
-    // 清场是裸 Destroy（不经过 Die）→ 死因天然分流，不会出现换局烟花
+    // 清场是裸 Destroy（不经过 Die）→ 死因天然分流，不会出现换局烟花。
+    // 联机：先标记 NetSyncEntity.Killed，OnDisable 注销时 despawn 带击杀原因
+    // → client 端在壳位置放爆炸；清场 despawn 静默（与 host 死因分流一致）
     public void Die()
     {
+        GetComponent<NetSyncEntity>()?.NotifyKilled(); // 判空：单机无组件静默
         AudioManager.PlayCrash(); // 死亡爆炸音（与粒子同点触发）
         SpawnExplosion(transform.position);
         AnyDied?.Invoke(transform.position); // GameManager 记机位（平局特写）

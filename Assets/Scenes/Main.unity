@@ -150,10 +150,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NetManager
   role: 0
   serverIp: 127.0.0.1
-  port: 7781
+  port: 7783
   snapshotInterval: 0.03
-  syncObject: {fileID: 0}
-  syncTarget: {fileID: 0}
   shellPrefabs: []
   shellRoot: {fileID: 0}
   shellTimeout: 3
