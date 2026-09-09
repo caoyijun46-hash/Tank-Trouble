@@ -252,7 +252,8 @@ public class GameManager : MonoBehaviour
         }
         if (team == TeamTwo)
         {
-            return GameConfig.Mode == GameMode.Double ? "玩家2" : "莱很卡";
+            // 右槽恒为"人控对手"：双人/联机 = 玩家2，只有 1vAI 是 AI 角色
+            return GameConfig.Mode == GameMode.VsAI ? "莱很卡" : "玩家2";
         }
         return $"阵营 {team}";
     }
@@ -313,8 +314,24 @@ public class GameManager : MonoBehaviour
 
     // 阵营二的人选由主菜单（GameConfig.Mode）决定：
     //   1vAI  → aiPrefab × roundConfig.aiCount；双人 → player2Prefab × 1（固定 1v1）
+    //   联机  → tankPrefab(Tank, host 本机玩家) + player2Prefab(Tank 1, client 化身)
     void SpawnRound()
     {
+        if (GameConfig.Mode == GameMode.Online)
+        {
+            // 联机 1v1：场上只有两辆人控车，无 AI。化身车由 NetManager 注册，
+            // 吃 client 上行命令；host 车照常吃本机键盘
+            SpawnParticipant(tankPrefab, TeamOne);
+            GameObject remote = SpawnParticipant(player2Prefab, TeamTwo);
+            if (remote != null && remote.TryGetComponent<Tank>(out var tank))
+            {
+                tank.IsRemote = true;
+                // 判空：单机（无 NetManager/非联机）静默——化身概念只在联机存在
+                NetManager.Instance?.RegisterRemoteAvatar(tank);
+            }
+            return;
+        }
+
         bool doubleMode = GameConfig.Mode == GameMode.Double;
         GameObject opponentPrefab = doubleMode ? player2Prefab : aiPrefab;
         int opponentCount = doubleMode ? 1 : roundConfig.aiCount;
@@ -334,24 +351,26 @@ public class GameManager : MonoBehaviour
 
     string ModeLabel => GameConfig.Mode == GameMode.Double ? "双人" : "1vAI";
 
-    // 单台坦克落到随机空房间中心，yaw 随机，并登记进 roster
-    void SpawnParticipant(GameObject prefab, int team)
+    // 单台坦克落到随机空房间中心，yaw 随机，并登记进 roster。返回生成对象
+    // （联机分支要拿它标记化身；其余调用方忽略返回值）
+    GameObject SpawnParticipant(GameObject prefab, int team)
     {
         if (prefab == null)
         {
-            return;
+            return null;
         }
         Vector2Int? cell = PickFreeMazeCell(tankCells);
         if (cell == null)
         {
             Debug.LogWarning($"GameManager: 没有空房间可用，跳过 {prefab.name}", this);
-            return;
+            return null;
         }
         tankCells.Add(cell.Value);
         GameObject go = Instantiate(prefab, MazeCellCenter(cell.Value),
             Quaternion.Euler(0f, Random.Range(0f, 360f), 0f)); // 随机朝向
         go.name = prefab.name;
         roster.Add((go, team));
+        return go;
     }
 
     // ---------- 道具 ----------

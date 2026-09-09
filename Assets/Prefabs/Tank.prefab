@@ -476,6 +476,7 @@ GameObject:
   - component: {fileID: 2001178964048385858}
   - component: {fileID: 5916679474560828559}
   - component: {fileID: 5715327554045179523}
+  - component: {fileID: 2074800024083872667}
   m_Layer: 0
   m_Name: Tank
   m_TagString: Tank
@@ -640,3 +641,16 @@ MonoBehaviour:
       m_Flags: 0
     m_Flags: 0
     m_Priority: 0
+--- !u!114 &2074800024083872667
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8502888892767159392}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 746fb8154854da44182fdfa28b617a16, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetSyncEntity
+  typeKey: 0

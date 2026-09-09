@@ -1,9 +1,10 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-// 阶段 2 联调输入源（临时脚本，真坦克接入后删除）：用键盘模拟"远端玩家"的操作意图。
+// client 端上行输入源（块 3 起正式角色）：读键盘把操作意图发给 host 上的化身车。
 // WASD → Move 状态（20Hz 定频发最新值，松开即发 0=停车）；空格 → Fire 事件（按下发一次）。
-// 管道选择在 NetManager.SendCommand 内部，产生方只填 CommandData——协议对输入源透明
+// 管道选择在 NetManager.SendCommand 内部，产生方只填 CommandData——协议对输入源透明。
+// 挂 client 场景 NetManager 同对象即可；将来换正式输入方案（手柄/触屏）只换本组件
 public class ClientInputSimulator : MonoBehaviour
 {
     [Tooltip("Move 状态发送间隔（秒）：0.05 = 20Hz")]

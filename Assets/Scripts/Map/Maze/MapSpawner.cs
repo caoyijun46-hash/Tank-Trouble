@@ -36,6 +36,11 @@ public class MapSpawner : MonoBehaviour
     public int UsedSeed { get; private set; }
     public MazeData Data { get; private set; }
 
+    // 一张迷宫生成完成时广播其决策层参数（静态观察者，仿 TankBase.AnyDied）：
+    //   Net 域订阅它做迷宫同构广播；单机场景无人订阅，零影响。
+    //   参数顺序与 Generate 签名一致（cols, rows, seed, loopMin, loopMax）
+    public static event System.Action<int, int, int, float, float> MapGenerated;
+
     // 运行时生成的地板（每局重建）
     GameObject floorGo;
 
@@ -128,6 +133,10 @@ public class MapSpawner : MonoBehaviour
             Physics.SyncTransforms();
             GridMap.Instance.SetBounds(Vector2.zero, new Vector2(m.Width, m.Depth));
         }
+
+        // 生成完成通知（决策层参数透传，订阅方如 Net 域拿它做迷宫同构广播）。
+        // 放末尾：调用方此刻可安全读取 Data/UsedSeed，且旧墙重建路径也已走完
+        MapGenerated?.Invoke(m.cols, m.rows, mazeSeed, loopMin, loopMax);
     }
 
     // 重开路径专用：Destroy 帧末才真正移除碰撞体，当帧扫描会把旧墙当新墙。

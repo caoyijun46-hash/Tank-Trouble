@@ -41,9 +41,11 @@ public class ScoreHud : MonoBehaviour
 
     void Awake()
     {
-        bool isDouble = GameConfig.Mode == GameMode.Double;
-        Activate(vsAIPanel, !isDouble);
-        Activate(doublePanel, isDouble);
+        // 两玩家槽面板（MainDoubleUI）服务一切"对手是人"的模式：Double 与 Online；
+        // 只有 1vAI（右槽=莱很卡）用单机 AI 面板
+        bool twoPlayers = GameConfig.Mode != GameMode.VsAI;
+        Activate(vsAIPanel, !twoPlayers);
+        Activate(doublePanel, twoPlayers);
     }
 
     // on=false 只做幂等关闭；on=true 先注册回调再启用（见头部时序纪律）

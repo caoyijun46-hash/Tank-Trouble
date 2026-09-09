@@ -40,7 +40,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2451457376351977660}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cfb03f96cac66e844872c725e1d93b61, type: 3}
   m_Name: 
@@ -229,7 +229,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 621e596a6b79b09419b54ef611456965, type: 2}
+  - {fileID: 2100000, guid: 7c1db8a43d6ae1f4fab7b253481bcd30, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -350,7 +350,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 621e596a6b79b09419b54ef611456965, type: 2}
+  - {fileID: 2100000, guid: 7c1db8a43d6ae1f4fab7b253481bcd30, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -440,7 +440,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 621e596a6b79b09419b54ef611456965, type: 2}
+  - {fileID: 2100000, guid: 7c1db8a43d6ae1f4fab7b253481bcd30, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -473,12 +473,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5714750667851795468}
-  - component: {fileID: 2001178964048385858}
-  - component: {fileID: 5916679474560828559}
-  - component: {fileID: 5715327554045179523}
-  - component: {fileID: 3342144708989190552}
+  - component: {fileID: 2154065073847959706}
   m_Layer: 0
-  m_Name: Tank 1
+  m_Name: Dead Tank
   m_TagString: Tank
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -504,55 +501,7 @@ Transform:
   - {fileID: 2940236792023759051}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!65 &2001178964048385858
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8502888892767159392}
-  m_Material: {fileID: 13400000, guid: 7b966ea27ba4ac54590878ce440c67c2, type: 2}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 3, y: 3, z: 4}
-  m_Center: {x: 0, y: 1.5, z: 0}
---- !u!54 &5916679474560828559
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8502888892767159392}
-  serializedVersion: 5
-  m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 0
-  m_IsKinematic: 0
-  m_Interpolate: 1
-  m_Constraints: 80
-  m_CollisionDetection: 1
---- !u!114 &5715327554045179523
+--- !u!114 &2154065073847959706
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -561,96 +510,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 8502888892767159392}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1f98e438e24d7c04db7d0b6f1d03157f, type: 3}
+  m_Script: {fileID: 11500000, guid: c8246a785b123be418f8683cd1b08249, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Tank
-  status: 0
-  bulletPrefab: {fileID: 5420566782939206507, guid: 55d7fb1ed91b10941b0d864ac3d4bd78, type: 3}
-  laserPrefab: {fileID: 839420172273132283, guid: 2cbfd6226b2b7084dbb109bcb402a49f, type: 3}
-  missilePrefab: {fileID: 1286159369651521980, guid: 6460857c5aee83347995bd77d121891d, type: 3}
-  firePoint: {fileID: 7062099538363450800}
-  unitConfig: {fileID: 11400000, guid: 0c64ca324cb2b984b8665dd0219c4d2a, type: 2}
-  dirtPrefab: {fileID: 4356800953600124292, guid: fb82dfb8d1c7044c69afd2486befecb3, type: 3}
-  dirtOffset: {x: 0, y: 0, z: -1}
-  explosionPrefab: {fileID: 1176145624114067509, guid: ec46c8c4a3cbc429382ee48bd9169b45, type: 3}
-  moveAction:
-    m_Name: Move
-    m_Type: 0
-    m_ExpectedControlType: 
-    m_Id: ff37cf96-8d80-4a62-a64f-50ebf2564444
-    m_Processors: 
-    m_Interactions: 
-    m_SingletonActionBindings:
-    - m_Name: 2D Vector
-      m_Id: a80bdd7d-d7ae-4a02-b825-f61df55c8ed0
-      m_Path: 2DVector
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Move
-      m_Flags: 4
-    - m_Name: up
-      m_Id: 52808a93-bd9b-4a9e-ae6b-86918ebb4fac
-      m_Path: <Keyboard>/upArrow
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Move
-      m_Flags: 8
-    - m_Name: down
-      m_Id: affe6005-8042-413e-94ba-2ec43937852a
-      m_Path: <Keyboard>/downArrow
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Move
-      m_Flags: 8
-    - m_Name: left
-      m_Id: 2f2faa68-0a05-4c13-a7fc-b30ecbedcaed
-      m_Path: <Keyboard>/leftArrow
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Move
-      m_Flags: 8
-    - m_Name: right
-      m_Id: b7fd6d7b-6862-45dd-b519-a854a2991d4b
-      m_Path: <Keyboard>/rightArrow
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Move
-      m_Flags: 8
-    m_Flags: 0
-    m_Priority: 0
-  fireAction:
-    m_Name: Fire
-    m_Type: 0
-    m_ExpectedControlType: 
-    m_Id: 9c5e0470-daff-4bb7-a036-fb767fbf5d42
-    m_Processors: 
-    m_Interactions: 
-    m_SingletonActionBindings:
-    - m_Name: 
-      m_Id: 5d29f757-83be-44a4-8a35-676c10c53e76
-      m_Path: <Keyboard>/numpad0
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
-      m_Action: Fire
-      m_Flags: 0
-    m_Flags: 0
-    m_Priority: 0
---- !u!114 &3342144708989190552
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8502888892767159392}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 746fb8154854da44182fdfa28b617a16, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NetSyncEntity
-  typeKey: 1
+  m_EditorClassIdentifier: Assembly-CSharp::SnapshotPlayer
+  bufferDepth: 3

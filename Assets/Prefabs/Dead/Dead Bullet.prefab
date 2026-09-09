@@ -11,12 +11,9 @@ GameObject:
   - component: {fileID: 5005658257804063984}
   - component: {fileID: 1553770222046024922}
   - component: {fileID: 2013348725952802949}
-  - component: {fileID: 6245911559682008499}
-  - component: {fileID: 738906646836323397}
-  - component: {fileID: 5955112469971881967}
-  - component: {fileID: 5574799357549346101}
+  - component: {fileID: 7303959530766342479}
   m_Layer: 6
-  m_Name: Bullet
+  m_Name: Dead Bullet
   m_TagString: Bullet
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -94,55 +91,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!135 &6245911559682008499
-SphereCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5420566782939206507}
-  m_Material: {fileID: 13400000, guid: 0003353e4370cad44aa1943f7feda206, type: 2}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Radius: 0.5
-  m_Center: {x: 0, y: 0, z: 0}
---- !u!54 &738906646836323397
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5420566782939206507}
-  serializedVersion: 5
-  m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 0
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 116
-  m_CollisionDetection: 0
---- !u!114 &5955112469971881967
+--- !u!114 &7303959530766342479
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -151,20 +100,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 5420566782939206507}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d9af0492d6f05264e859a1ea4c9bc08f, type: 3}
+  m_Script: {fileID: 11500000, guid: c8246a785b123be418f8683cd1b08249, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NormalBullet
-  config: {fileID: 11400000, guid: 2c99a537dab28a242a7280685c68bfca, type: 2}
---- !u!114 &5574799357549346101
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5420566782939206507}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 746fb8154854da44182fdfa28b617a16, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NetSyncEntity
-  typeKey: 3
+  m_EditorClassIdentifier: Assembly-CSharp::SnapshotPlayer
+  bufferDepth: 3
