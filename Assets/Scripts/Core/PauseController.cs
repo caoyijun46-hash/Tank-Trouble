@@ -64,6 +64,7 @@ public class PauseController : MonoBehaviour
         if (NetManager.Instance != null)
         {
             NetManager.Instance.PauseSynced += ShowRemotePause;
+            NetManager.Instance.SessionEnded += OnSessionEnded;
         }
     }
 
@@ -72,6 +73,7 @@ public class PauseController : MonoBehaviour
         if (NetManager.Instance != null)
         {
             NetManager.Instance.PauseSynced -= ShowRemotePause;
+            NetManager.Instance.SessionEnded -= OnSessionEnded;
         }
         foreach (PanelRenderer p in GetComponentsInChildren<PanelRenderer>(true))
         {
@@ -179,7 +181,10 @@ public class PauseController : MonoBehaviour
         NetManager.Instance?.HostSendPause(false);
     }
 
-    // 整场重来：先关面板，GameManager.ResetMatch 自己会恢复 timeScale
+    // 整场重来：先关面板，GameManager.ResetMatch 自己会恢复 timeScale。
+    // 联机：host 的暂停解除要广播（client 的只读遮罩跟着关），否则 client
+    // 会一直挂着遮罩看新局；比分清零/新迷宫由 ResetMatch→StartNewRound 的
+    // RoundStart(0,0) + MapParams 广播自然覆盖
     void Restart()
     {
         if (!CanPause)
@@ -187,6 +192,7 @@ public class PauseController : MonoBehaviour
             return;
         }
         pausePanel.SetActive(false);
+        NetManager.Instance?.HostSendPause(false);
         if (GameManager.Instance != null)
         {
             GameManager.Instance.ResetMatch();
@@ -199,7 +205,29 @@ public class PauseController : MonoBehaviour
         {
             return;
         }
+        // 先广播"会话结束"（可靠）：driver 要下一次 Update 才真正发包，不能同帧
+        // 切场景（销毁 driver 会把消息吞掉）——延迟一小段再切
+        NetManager.Instance?.HostSendSessionEnd();
+        StartCoroutine(GoMenuAfterSend());
+    }
+
+    System.Collections.IEnumerator GoMenuAfterSend()
+    {
+        // 暂停中 timeScale=0，必须 realtime 等待，否则永不醒
+        yield return new WaitForSecondsRealtime(0.3f);
         Time.timeScale = 1f; // Menu 场景没有 GameManager 兜底，先恢复再说
+        SceneManager.LoadScene(menuSceneName);
+    }
+
+    // client：host 结束会话（点 Menu 广播 / 意外断线兜底）→ 回主菜单。
+    // 系统驱动路径，不走 CanPause 拦截（那是拦玩家的按钮操作）
+    void OnSessionEnded()
+    {
+        if (CanPause)
+        {
+            return; // host 收不到本事件（防御）；host 的菜单操作走 GoMenu
+        }
+        Time.timeScale = 1f;
         SceneManager.LoadScene(menuSceneName);
     }
 }

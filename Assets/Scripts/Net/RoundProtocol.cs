@@ -11,6 +11,8 @@
 //                       [13]camFlag(1=有阵亡点) [14..17]camX [18..21]camZ   = 22B
 //   RoundStart  type=6  [1..4]score1 [5..8]score2                            =  9B
 //   PauseState  type=7  [1]paused(byte 0/1)                                  =  2B
+//   SessionEnd  type=8  [1]reason(0=回主菜单)  —— host 结束会话（点 Menu），
+//                       client 收到立即回菜单；意外断线由 Disconnect 兜底        =  2B
 //
 // RoundEnd 的 cam 字段 = host 结算特写机位（FixedMapCamera.Focus 盯最后阵亡点，
 // 无阵亡点则 host 回全图 → camFlag=0，client 忽略坐标）。相机是"演出指令"：
@@ -20,9 +22,13 @@ public static class RoundProtocol
     public const byte TypeRoundEnd = 5;
     public const byte TypeRoundStart = 6;
     public const byte TypePause = 7;
+    public const byte TypeSessionEnd = 8;
     public const int RoundEndSize = 22;
     public const int RoundStartSize = 9;
     public const int PauseSize = 2;
+    public const int SessionEndSize = 2;
+
+    public const byte SessionEndToMenu = 0; // reason：回主菜单（当前唯一）
 
     // writer 必须 ref 传递！DataStreamWriter 是 struct，按值传进方法后写入推进的
     // 是"拷贝"的位置游标 → EndSend 发出 0 字节空包。这是联机历史根因，勿再犯
@@ -49,6 +55,12 @@ public static class RoundProtocol
     {
         w.WriteByte(TypePause);
         w.WriteByte(paused ? (byte)1 : (byte)0);
+    }
+
+    public static void WriteSessionEnd(ref Unity.Collections.DataStreamWriter w, byte reason)
+    {
+        w.WriteByte(TypeSessionEnd);
+        w.WriteByte(reason);
     }
 
     // 长度防御照抄 CommandProtocol：不足最小长度直接 false，不在流上硬读——
@@ -105,6 +117,21 @@ public static class RoundProtocol
             return false;
         }
         paused = r.ReadByte() != 0;
+        return true;
+    }
+
+    public static bool TryReadSessionEnd(Unity.Collections.DataStreamReader r, out byte reason)
+    {
+        reason = SessionEndToMenu;
+        if (r.Length < SessionEndSize)
+        {
+            return false;
+        }
+        if (r.ReadByte() != TypeSessionEnd)
+        {
+            return false;
+        }
+        reason = r.ReadByte();
         return true;
     }
 }

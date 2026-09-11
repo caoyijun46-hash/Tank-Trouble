@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 141508526996708693}
   - component: {fileID: 6458012739936082204}
   - component: {fileID: -438691699681166162}
+  - component: {fileID: 1619789432510869237}
   m_Layer: 6
   m_Name: Dead Laser
   m_TagString: Bullet
@@ -215,3 +216,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SnapshotPlayer
   bufferDepth: 3
+  explosionPrefab: {fileID: 0}
+--- !u!114 &1619789432510869237
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 839420172273132283}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a1f510d06e5b664ba9dfb37bb6cc96a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpawnSound

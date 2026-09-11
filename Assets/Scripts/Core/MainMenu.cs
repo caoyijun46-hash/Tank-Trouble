@@ -24,6 +24,17 @@ public class MainMenu : MonoBehaviour
         LoadGame();
     }
 
+    // Main Panel 的 Exit：退出游戏。属于主菜单通用功能（与联机无关）——
+    // 编辑器里停止 Play 便于调试，Build 后走 Application.Quit
+    public void QuitGame()
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+
     void LoadGame()
     {
         SceneManager.LoadScene(gameSceneName);

@@ -51,6 +51,7 @@ public class NetManager : MonoBehaviour
     // RoundEnd 里的 winner 字段已解析但暂不外传——胜利横幅后置，届时再扩事件
     public event System.Action<int, int> ScoreSynced; // 比分 (score1, score2)：RoundEnd/RoundStart 共用
     public event System.Action<bool> PauseSynced;     // host 暂停状态（true=暂停中）
+    public event System.Action SessionEnded;          // host 结束会话（点 Menu）或连接意外断开（兜底）
 
     [Header("Client 实体壳")]
     [Tooltip("壳 prefab 表，下标 = typeKey（与玩法 prefab 上 NetSyncEntity.typeKey 对齐）：0=坦克 1=道具 2=子弹 3=导弹")]
@@ -133,7 +134,12 @@ public class NetManager : MonoBehaviour
         else
         {
             // 客户端不 bind——内核自动分配临时端口，握手包带源端口出发。
-            // Parse(ip, port) 连接路径经 MinimalBroadcast 验证可工作
+            // 菜单联机流程（局域网发现/手输）会写 GameConfig.ServerIp：
+            // 非空则覆盖 Inspector 默认值（默认只作直开调试用）
+            if (!string.IsNullOrEmpty(GameConfig.ServerIp))
+            {
+                serverIp = GameConfig.ServerIp;
+            }
             connection = driver.Connect(NetworkEndpoint.Parse(serverIp, port));
             Debug.Log($"[Net] 客户端连接 {serverIp}:{port}");
         }
@@ -416,6 +422,31 @@ public class NetManager : MonoBehaviour
         Debug.Log($"[Net][Host] 暂停广播：{paused}");
     }
 
+    // host 结束会话（回主菜单前调用）：client 收到立即回菜单。
+    // 注意 driver 发包在下一次 ScheduleUpdate 才真正送出——调用方（PauseController）
+    // 必须延迟一小段时间再切场景，否则同帧销毁 driver 会把消息吞掉
+    public void HostSendSessionEnd()
+    {
+        if (!IsHost || !driver.IsCreated || !serverConns.IsCreated)
+        {
+            return;
+        }
+        for (int i = 0; i < serverConns.Length; i++)
+        {
+            if (!serverConns[i].IsCreated)
+            {
+                continue;
+            }
+            int err = driver.BeginSend(reliable, serverConns[i], out var w, RoundProtocol.SessionEndSize);
+            if (err == 0)
+            {
+                RoundProtocol.WriteSessionEnd(ref w, RoundProtocol.SessionEndToMenu);
+                driver.EndSend(w);
+            }
+        }
+        Debug.Log("[Net][Host] 会话结束广播");
+    }
+
     // ---------- Host：实体注册表（Spawn/Despawn + 采集源） ----------
 
     // NetSyncEntity.OnEnable 调：进注册表（每 tick 采集进帧）+ 广播 Spawn。
@@ -624,13 +655,21 @@ public class NetManager : MonoBehaviour
                             PauseSynced?.Invoke(paused);
                         }
                         break;
+                    case RoundProtocol.TypeSessionEnd:
+                        if (RoundProtocol.TryReadSessionEnd(stream, out _))
+                        {
+                            Debug.Log("[Net][Client] host 结束会话 → 回主菜单");
+                            SessionEnded?.Invoke();
+                        }
+                        break;
                 }
             }
             else if (cmd == NetworkEvent.Type.Disconnect)
             {
                 connected = false;
-                Debug.Log("[Net] 与主机断开");
+                Debug.Log("[Net] 与主机断开（意外断线兜底：同样视为会话结束）");
                 connection = default;
+                SessionEnded?.Invoke(); // 兜底：host 强退时 client 也回菜单，不卡在冻结画面
             }
         }
         LogHeartbeat(); // 每帧路径（连接建立后）
@@ -727,6 +766,7 @@ public class NetManager : MonoBehaviour
             {
                 Instantiate(boom, slot.shell.transform.position, Quaternion.identity);
             }
+            AudioManager.PlayCrash(); // client 端爆炸音（静态判空：无 AudioManager 静默）
         }
         Destroy(slot.shell.gameObject);
         Debug.Log($"[Net][Client] Despawn：id={id} reason={reason}（壳槽 {slots.Count}）");

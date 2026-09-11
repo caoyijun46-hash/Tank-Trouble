@@ -22,7 +22,9 @@ public class ClientInputSimulator : MonoBehaviour
             return; // 无键盘（移动端）或无主机连接：不产输入也不炸
         }
 
-        // Fire：一次性事件，按下瞬间发一次（可靠管道负责送达）
+        // Fire：一次性事件，按下瞬间发一次（可靠管道负责送达）。
+        // 开火音不在这里播——统一由子弹壳出生的 SpawnSound 发声（见该组件：
+        // 避免"即时音 + 壳出生回声"双响；代价是自己开火音延迟 ≈ 半 RTT）
         if (kb.spaceKey.wasPressedThisFrame)
         {
             NetManager.Instance.SendCommand(new CommandData

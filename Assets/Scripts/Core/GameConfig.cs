@@ -8,4 +8,14 @@ public enum GameMode { VsAI = 0, Double = 1, Online = 2 }
 public static class GameConfig
 {
     public static GameMode Mode = GameMode.Online;
+
+    // ---- 联机（局域网发现流程写入，跨场景存活） ----
+    /// <summary>client 要连的 host IP：菜单里从发现列表/手输得到。空 = 用场景 Inspector 默认值</summary>
+    public static string ServerIp;
+
+    /// <summary>房间名（host 在发现广播里带上，client 列表显示）</summary>
+    public static string RoomName;
+
+    /// <summary>玩家名（host 广播展示 + 加入请求携带）</summary>
+    public static string PlayerName;
 }

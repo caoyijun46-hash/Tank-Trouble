@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 1553770222046024922}
   - component: {fileID: 2013348725952802949}
   - component: {fileID: 7303959530766342479}
+  - component: {fileID: 2677533555731954919}
   m_Layer: 6
   m_Name: Dead Bullet
   m_TagString: Bullet
@@ -104,3 +105,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SnapshotPlayer
   bufferDepth: 3
+  explosionPrefab: {fileID: 0}
+--- !u!114 &2677533555731954919
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5420566782939206507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a1f510d06e5b664ba9dfb37bb6cc96a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpawnSound
