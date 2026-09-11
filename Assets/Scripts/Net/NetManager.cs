@@ -56,7 +56,7 @@ public class NetManager : MonoBehaviour
     public event System.Action SessionEnded;          // host 结束会话（点 Menu）或连接意外断开（兜底）
 
     [Header("Client 实体壳")]
-    [Tooltip("壳 prefab 表，下标 = typeKey（与玩法 prefab 上 NetSyncEntity.typeKey 对齐）：0=坦克 1=道具 2=子弹 3=导弹")]
+    [Tooltip("壳 prefab 表，下标 = typeKey（与玩法 prefab 上 NetSyncEntity.typeKey 对齐）：0=坦克(Dead Tank) 1=坦克1(Dead Tank 1) 2=道具 3=子弹 4=激光 5=导弹")]
     [SerializeField] private SnapshotPlayer[] shellPrefabs;
     [Tooltip("实例化壳的父容器（场景里一个空物体）")]
     [SerializeField] private Transform shellRoot;

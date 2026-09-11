@@ -12,7 +12,7 @@ using UnityEngine;
 // 单机（场景无 NetManager）静默跳过——挂与不挂都不影响单机玩法
 public class NetSyncEntity : MonoBehaviour
 {
-    [Tooltip("client 端壳 prefab 表索引（NetManager.shellPrefabs 对齐）：0=坦克 1=道具 2=子弹 3=导弹")]
+    [Tooltip("client 端壳 prefab 表索引（NetManager.shellPrefabs 对齐）：0=坦克(Dead Tank) 1=坦克1(Dead Tank 1) 2=道具 3=子弹 4=激光 5=导弹")]
     [SerializeField] private byte typeKey;
 
     /// <summary>host 注册表分配的稳定身份（快照帧/Spawn/Despawn 共用；未注册时无效）</summary>

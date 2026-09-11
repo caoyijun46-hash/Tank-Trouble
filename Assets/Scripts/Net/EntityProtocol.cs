@@ -7,8 +7,10 @@
 //   与快照（不可靠状态流）相反——可靠性按数据类型选
 //
 // typeKey = client 端壳 prefab 表索引（NetManager.shellPrefabs），host 端
-//   玩法 prefab 上 NetSyncEntity.typeKey 与之对齐。默认约定：
-//   0=坦克（玩家/AI 共用 Dead Tank） 1=道具(Dead Item) 2=子弹(Dead Bullet) 3=导弹(Dead Missile)
+//   玩法 prefab 上 NetSyncEntity.typeKey 与之对齐。当前实际取值（改表时
+//   NetSyncEntity/NetManager 两处 Tooltip 同表，一起改）：
+//   0=坦克(Tank/Enemy 共用 Dead Tank) 1=坦克1(Dead Tank 1) 2=道具
+//   3=子弹 4=激光 5=导弹
 //
 // 消息字节布局（与快照同一 UDP 流，靠 type 分派；手写读写，无 JSON）：
 //   Spawn   [0] type=3  [1] id  [2] typeKey  [3..14] x/z/yaw float×3      = 15B

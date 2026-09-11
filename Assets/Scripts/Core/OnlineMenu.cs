@@ -8,13 +8,13 @@ using UnityEngine.SceneManagement;
 // 联机菜单总控（挂 Menu 场景）：局域网发现流程的 UI 与状态机。
 //
 //   host 流程：Online → Host（读名字、点亮 LanBeacon 等待广播、显示玩家列表）
-//             → Start（进 Main，NetManager 开始监听 7780）
+//             → Start（进 Main，NetManager 开始监听 7783）
 //   client 流程：Online → 房间列表（LanDiscovery 刷新）→ 点条目：
 //             state=游戏中 → 直接进 Client 场景连接
 //             state=等待中 → 每秒单播 join 请求（host 列表显示"谁在等"），
 //                            轮询该 host 变"游戏中"后自动进 Client；30s 超时回列表
 //
-// 为什么等待态用"轮询状态"而不是直接连接：host 菜单阶段没有游戏监听（7780 由
+// 为什么等待态用"轮询状态"而不是直接连接：host 菜单阶段没有游戏监听（7783 由
 // Main 场景的 NetManager 建立，且场景切换会重建连接）——菜单只负责"预告"，
 // 真正的连接等 host 进游戏后再建立
 public class OnlineMenu : MonoBehaviour
