@@ -4,6 +4,9 @@
 [Oo]bj/
 [Bb]uild/
 [Bb]uilds/
+# Build output (typo'd folder name as used locally)
+Bulid/
+Bulid.zip
 [Ll]ogs/
 [Uu]ser[Ss]ettings/
 MemoryCaptures/
