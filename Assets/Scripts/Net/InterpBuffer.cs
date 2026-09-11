@@ -17,12 +17,6 @@ public class InterpBuffer
     SnapshotData? s1;  // 窗口终点（"未来端点"，必须先于渲染拿到）
     float progress;    // 窗口内已消耗比例 0..1
 
-    // ---- 临时诊断（阶跃定位后删）：最近一次 GetPose 的内部状态 ----
-    public float DbgSpan { get; private set; }      // 窗口时间跨度
-    public float DbgProgress { get; private set; }  // 窗口消耗比例
-    public int DbgQueueCount { get; private set; }  // 剩余缓冲
-    public bool DbgFrozen { get; private set; }     // 是否冻结在端点（缓冲耗尽/直通）
-
     public void Push(SnapshotData snap)
     {
         queue.Enqueue(snap);
@@ -69,18 +63,9 @@ public class InterpBuffer
             // （交接文档遗留的"Client Cube 卡顿"即此根因）。饱和后恢复：
             // 新快照到达滑一窗 progress 归零，从端点平滑续走
             progress = 1f;
-            DbgSpan = span;
-            DbgProgress = progress;
-            DbgQueueCount = queue.Count;
-            DbgFrozen = true;
             pose = s1.Value;
             return true;
         }
-
-        DbgSpan = span;
-        DbgProgress = progress;
-        DbgQueueCount = queue.Count;
-        DbgFrozen = false;
 
         // 插值：位置 Lerp；yaw 是周期量必须 LerpAngle（否则 350°→10° 会反绕 340°）
         float t = Mathf.Clamp01(progress);

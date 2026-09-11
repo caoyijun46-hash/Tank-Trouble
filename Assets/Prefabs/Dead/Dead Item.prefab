@@ -103,4 +103,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8246a785b123be418f8683cd1b08249, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SnapshotPlayer
-  bufferDepth: 3
+  netConfig: {fileID: 11400000, guid: f9fb8c0db64dc8d41b9eec39594e7512, type: 2}
+  explosionPrefab: {fileID: 0}

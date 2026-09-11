@@ -15,3 +15,8 @@ MonoBehaviour:
   speed: 20
   lifeTime: 10
   maxBounces: 5
+  turnSpeed: 180
+  repathInterval: 0.3
+  arriveDistance: 0.6
+  unitRadius: 0
+  maxRecoverRadius: 10

@@ -834,7 +834,7 @@ MonoBehaviour:
   role: 1
   serverIp: 127.0.0.1
   port: 7783
-  snapshotInterval: 0.03
+  netConfig: {fileID: 11400000, guid: f9fb8c0db64dc8d41b9eec39594e7512, type: 2}
   shellPrefabs:
   - {fileID: 2154065073847959706, guid: f743576255c65fc42a5a929d1dd3a9e0, type: 3}
   - {fileID: -4628507867356580916, guid: bbcfdc17f707db54c8501cd7500c820c, type: 3}
@@ -843,7 +843,6 @@ MonoBehaviour:
   - {fileID: -438691699681166162, guid: 3284f6c4d41e5d94aa5f2af2efb547ed, type: 3}
   - {fileID: 3196289762184246595, guid: bb84e1785b4b4ab47991283f1e63ed54, type: 3}
   shellRoot: {fileID: 1788847431}
-  shellTimeout: 3
   debugRebuildKeyR: 0
 --- !u!4 &1788847431
 Transform:
@@ -872,7 +871,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f86f977ecfcee7e4482175888128010c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ClientInputSimulator
-  stateInterval: 0.03
+  netConfig: {fileID: 11400000, guid: f9fb8c0db64dc8d41b9eec39594e7512, type: 2}
 --- !u!1 &2050922068
 GameObject:
   m_ObjectHideFlags: 0

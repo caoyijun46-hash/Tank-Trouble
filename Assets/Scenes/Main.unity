@@ -152,10 +152,9 @@ MonoBehaviour:
   role: 0
   serverIp: 127.0.0.1
   port: 7783
-  snapshotInterval: 0.03
+  netConfig: {fileID: 11400000, guid: f9fb8c0db64dc8d41b9eec39594e7512, type: 2}
   shellPrefabs: []
   shellRoot: {fileID: 0}
-  shellTimeout: 3
   debugRebuildKeyR: 0
 --- !u!4 &291713434
 Transform:

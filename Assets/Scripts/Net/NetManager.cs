@@ -42,8 +42,10 @@ public class NetManager : MonoBehaviour
     [SerializeField] private ushort port = 7778; // 与参考脚本同端口（7777 实测常被占）
 
     [Header("同步")]
-    [Tooltip("快照间隔（秒）：33Hz = 0.03")]
-    [SerializeField, Range(0.01f, 0.2f)] private float snapshotInterval = 0.03f;
+    [Tooltip("联机参数（Assets/Config/NetConfig.asset：快照率/插值深度/壳超时/输入频率）——手感旋钮单一来源，不设组件侧第二套字段")]
+    [SerializeField] private NetConfig netConfig;
+    private float snapshotInterval; // Start 从 netConfig 缓存（热路径不查资产；兜底常量仅供缺配不崩）
+    private float shellTimeout;
     private ISyncHost avatar; // 联机化身：client 玩家的车（1v1 单化身，GameManager 联机分支注册）
 
     // 对局事件下行出口（Client 端收 host 广播后触发；UI 组件判空订阅）。
@@ -58,8 +60,6 @@ public class NetManager : MonoBehaviour
     [SerializeField] private SnapshotPlayer[] shellPrefabs;
     [Tooltip("实例化壳的父容器（场景里一个空物体）")]
     [SerializeField] private Transform shellRoot;
-    [Tooltip("壳超时清理（秒）：此间无快照即删。Despawn 可靠几乎不丢，此兜底防断线/卸载残壳")]
-    [SerializeField, Range(1f, 10f)] private float shellTimeout = 3f;
     private FixedMapCamera clientCam; // 惰性查找缓存：结算特写执行（RoundEnd/Start 带机位）
 
     [Header("迷宫同构（联机调试期）")]
@@ -116,6 +116,13 @@ public class NetManager : MonoBehaviour
     // Awake 阶段场景仍在加载，重操作可能产生大卡顿帧，连接建立时机不稳定
     void Start()
     {
+        // 联机参数缓存进本地字段（tick/超时是每帧路径，不查资产）；兜底防缺配崩溃
+        snapshotInterval = netConfig != null ? netConfig.snapshotInterval : 0.03f;
+        shellTimeout = netConfig != null ? netConfig.shellTimeout : 3f;
+        if (netConfig == null)
+        {
+            Debug.LogError("[Net] 缺 NetConfig 引用（拖 Assets/Config/NetConfig.asset），当前用兜底参数运行", this);
+        }
         driver = NetworkDriver.Create();
         // 可靠管道：命令事件（Fire）与实体生命周期（Spawn/Despawn）走它
         reliable = driver.CreatePipeline(typeof(ReliableSequencedPipelineStage));

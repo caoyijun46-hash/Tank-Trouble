@@ -9,6 +9,9 @@ public class UnitConfig : ScriptableObject
     public float moveSpeed = 20f;
     public float rotateSpeed = 240f;
 
+    [Tooltip("移动扬尘阈值（m/s）：host 按物理速度、client 壳按帧间位移测速，两端读同一份保证观感一致")]
+    public float dirtSpeedThreshold = 0.5f;
+
     [Header("射击")]
     public float coolDown = 0.5f;   // 开火冷却（秒）
     public int maxBullets = 5;      // 子弹池上限（普通弹复用池）

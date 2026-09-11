@@ -4388,7 +4388,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a3b1f86d0a46b264c8c6aedc87f955a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LanDiscovery
-  expireSeconds: 3
+  netConfig: {fileID: 11400000, guid: f9fb8c0db64dc8d41b9eec39594e7512, type: 2}
 --- !u!4 &1434967833
 Transform:
   m_ObjectHideFlags: 0

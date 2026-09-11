@@ -7,12 +7,18 @@ using UnityEngine.InputSystem;
 // 挂 client 场景 NetManager 同对象即可；将来换正式输入方案（手柄/触屏）只换本组件
 public class ClientInputSimulator : MonoBehaviour
 {
-    [Tooltip("Move 状态发送间隔（秒）：0.05 = 20Hz")]
-    [SerializeField, Range(0.02f, 0.2f)] private float stateInterval = 0.05f;
+    [Tooltip("联机参数（Assets/Config/NetConfig.asset）：输入上行频率在此")]
+    [SerializeField] private NetConfig netConfig;
+    private float stateInterval; // Awake 从 netConfig 缓存（热路径不查资产）
 
     private float sendTimer;
     private uint moveSeq; // Move 流序号：主机以它判断新旧（不可靠流可能乱序）
     private uint fireSeq; // Fire 流序号（可靠流有序，仅调试用）
+
+    void Awake()
+    {
+        stateInterval = netConfig != null ? netConfig.inputSendInterval : 0.05f;
+    }
 
     void Update()
     {

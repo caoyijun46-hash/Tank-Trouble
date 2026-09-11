@@ -22,8 +22,9 @@ public class LanDiscovery : MonoBehaviour
         public float lastSeen;
     }
 
-    [Tooltip("房间过期时间（秒）：host 每秒广播，超过此值无包视为掉线")]
-    [SerializeField] private float expireSeconds = 3f;
+    [Tooltip("联机参数（Assets/Config/NetConfig.asset）：房间过期时间在此")]
+    [SerializeField] private NetConfig netConfig;
+    private float expireSeconds; // OnEnable 从 netConfig 缓存
 
     /// <summary>房间列表有变化（新增/过期/状态变化）时触发</summary>
     public event System.Action RoomsChanged;
@@ -38,6 +39,7 @@ public class LanDiscovery : MonoBehaviour
 
     void OnEnable()
     {
+        expireSeconds = netConfig != null ? netConfig.discoveryExpire : 3f; // 兜底仅供缺配不崩
         try
         {
             sock = new UdpClient();

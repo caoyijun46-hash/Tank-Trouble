@@ -1,14 +1,16 @@
 using UnityEngine;
 
 // 追踪弹：寻路绕墙追踪目标。
-// 机制：周期重算路径（目标在动）→ 沿路径点转向 → 每帧重设速度方向
+// 机制：周期重算路径（目标在动）→ 沿路径点转向 → 每帧重设速度方向。
+// 追踪参数（转向/重算间隔/到达距离/半径）来自 Ballistic_Missile.asset 的
+// 追踪扩展字段——数值单一来源，prefab 上不再序列化（兜底仅供缺配不崩）
 public class Missile : BulletBase
 {
-    [SerializeField] private float turnSpeed = 360f;      // 转向速率（度/秒）
-    [SerializeField] private float repathInterval = 0.3f; // 路径重算间隔（秒）
-    [SerializeField] private float arriveDistance = 0.6f; // 到达路径点的判定距离
-    [SerializeField] private int unitRadius = 0;          // 体积半径（格数）：导弹小，0 即可
-    [SerializeField] private int maxRecoverRadius = 10;   // 找回网格的最大搜索半径（格数）
+    float TurnSpeed => config != null ? config.turnSpeed : 360f;
+    float RepathInterval => config != null ? config.repathInterval : 0.3f;
+    float ArriveDistance => config != null ? config.arriveDistance : 0.6f;
+    int UnitRadius => config != null ? config.unitRadius : 0;
+    int MaxRecoverRadius => config != null ? config.maxRecoverRadius : 10;
 
     [SerializeField]private Transform target;
     private System.Collections.Generic.List<Vector2Int> path;
@@ -49,7 +51,7 @@ public class Missile : BulletBase
         if (repathTimer <= 0f)
         {
             Repath();
-            repathTimer = repathInterval;
+            repathTimer = RepathInterval;
         }
 
         FollowPath();
@@ -72,9 +74,9 @@ public class Missile : BulletBase
         Vector2Int goal = grid.WorldToCell(target.position);
 
         // 兜底：导弹可能因转向限制甩出可走区域，先找回最近的网格位置再寻路
-        if (!grid.IsWalkable(start, unitRadius))
+        if (!grid.IsWalkable(start, UnitRadius))
         {
-            Vector2Int? near = grid.ClosestWalkable(start, maxRecoverRadius, unitRadius);
+            Vector2Int? near = grid.ClosestWalkable(start, MaxRecoverRadius, UnitRadius);
             if (near == null)
             {
                 path = null;
@@ -82,9 +84,9 @@ public class Missile : BulletBase
             }
             start = near.Value;
         }
-        if (!grid.IsWalkable(goal, unitRadius))
+        if (!grid.IsWalkable(goal, UnitRadius))
         {
-            Vector2Int? near = grid.ClosestWalkable(goal, maxRecoverRadius, unitRadius);
+            Vector2Int? near = grid.ClosestWalkable(goal, MaxRecoverRadius, UnitRadius);
             if (near == null)
             {
                 path = null;
@@ -93,7 +95,7 @@ public class Missile : BulletBase
             goal = near.Value;
         }
 
-        path = Pathfinding.FindPath(grid, start, goal, unitRadius);
+        path = Pathfinding.FindPath(grid, start, goal, UnitRadius);
         pathIndex = 1; // 跳过起点格：导弹已在起点格内，从第二格开始跟
     }
 
@@ -123,7 +125,7 @@ public class Missile : BulletBase
             }
 
             float proj = Vector3.Dot(transform.position - prev, segDir / segLen);
-            if (proj >= segLen - arriveDistance)
+            if (proj >= segLen - ArriveDistance)
             {
                 pathIndex++;
             }
@@ -148,7 +150,7 @@ public class Missile : BulletBase
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation,
                 Quaternion.LookRotation(dir),
-                turnSpeed * Time.fixedDeltaTime);
+                TurnSpeed * Time.fixedDeltaTime);
             move(); // 转向后必须重设 velocity，刚体不会自动跟随 forward
         }
     }

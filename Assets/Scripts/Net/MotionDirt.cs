@@ -6,7 +6,8 @@ using UnityEngine;
 // 两者语义等价：动得快就喷、停就停，纯本地推断、零网络。
 //
 // 挂 Dead 坦克壳根（如 Dead Tank / Dead Tank 1），拖 FX_DirtSplatter.prefab。
-// 速度阈值与 host 端一致（0.5 m/s），避免"host 在喷、壳不喷"的观感差
+// 喷尘阈值从 UnitConfig.dirtSpeedThreshold 读——与 host 端 TankBase.UpdateDirt
+// 同一份配置源，两端不会各配一套导致"host 在喷、壳不喷"的观感差
 public class MotionDirt : MonoBehaviour
 {
     [Tooltip("尘土粒子 prefab（与 host 坦克同款：Assets/Particles/FX_DirtSplatter.prefab）")]
@@ -15,19 +16,13 @@ public class MotionDirt : MonoBehaviour
     [Tooltip("粒子实例相对壳根的位置（0 = prefab 发射器已贴地）")]
     [SerializeField] private Vector3 dirtOffset;
 
-    [Tooltip("喷尘速度阈值（m/s），与 TankBase.UpdateDirt 一致")]
-    [SerializeField, Range(0.1f, 2f)] private float threshold = 0.5f;
+    [Tooltip("坦克手感配置（Assets/Config/UnitConfig.asset）：喷尘阈值与 host 端同源读取")]
+    [SerializeField] private UnitConfig unitConfig;
+    private float thresholdSqr; // Start 从 unitConfig 缓存（平方，免每帧开方）
 
     private ParticleSystem dirt;
     private Vector3 lastPos;
     private bool hasLast;
-
-    // 临时诊断（定位后删）：0.2s 窗口累计"帧间位移之和"与"非零差分帧数"——
-    // 区分连续运动(每帧都有位移)与阶跃运动(偶尔大跳,大部分帧差分 0)
-    private float dbgTimer;
-    private float dbgWinMove;
-    private int dbgWinFrames;
-    private int dbgWinNonZero;
 
     void Start()
     {
@@ -43,6 +38,9 @@ public class MotionDirt : MonoBehaviour
         dirt.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         lastPos = transform.position;
         hasLast = true;
+        // 阈值与 host 端同源；兜底仅供缺配不崩（不是第二配置源）
+        float t = unitConfig != null ? unitConfig.dirtSpeedThreshold : 0.5f;
+        thresholdSqr = t * t;
     }
 
     void Update()
@@ -59,7 +57,7 @@ public class MotionDirt : MonoBehaviour
         lastPos = transform.position;
         hasLast = true;
 
-        bool rolling = vSqr > threshold * threshold;
+        bool rolling = vSqr > thresholdSqr;
         // 判定用 isPlaying（Play/Stop 后立即翻转）而非 isStopped（依赖粒子死光）
         if (rolling)
         {
@@ -71,23 +69,6 @@ public class MotionDirt : MonoBehaviour
         else if (dirt.isPlaying)
         {
             dirt.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        }
-
-        // 临时诊断：窗口累计（不打印每帧，避免刷屏）
-        dbgWinMove += (transform.position - lastPos).magnitude;
-        dbgWinFrames++;
-        if (vSqr > 1e-4f)
-        {
-            dbgWinNonZero++;
-        }
-        dbgTimer += Time.unscaledDeltaTime;
-        if (dbgTimer >= 0.2f)
-        {
-            dbgTimer = 0f;
-            Debug.Log($"[Dirt][{name}] pos={transform.position:F1} 窗口位移={dbgWinMove:F2}m 差分非零帧={dbgWinNonZero}/{dbgWinFrames} vSqr={vSqr:F2} rolling={rolling} isPlaying={dirt.isPlaying}");
-            dbgWinMove = 0f;
-            dbgWinFrames = 0;
-            dbgWinNonZero = 0;
         }
     }
 }

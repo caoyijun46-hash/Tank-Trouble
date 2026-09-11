@@ -515,7 +515,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8246a785b123be418f8683cd1b08249, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SnapshotPlayer
-  bufferDepth: 3
+  netConfig: {fileID: 11400000, guid: f9fb8c0db64dc8d41b9eec39594e7512, type: 2}
   explosionPrefab: {fileID: 1176145624114067509, guid: ec46c8c4a3cbc429382ee48bd9169b45, type: 3}
 --- !u!114 &-4691290913033293766
 MonoBehaviour:
@@ -531,7 +531,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MotionDirt
   dirtPrefab: {fileID: 4356800953600124292, guid: fb82dfb8d1c7044c69afd2486befecb3, type: 3}
   dirtOffset: {x: 0, y: 0, z: -1}
-  threshold: 0.5
+  unitConfig: {fileID: 11400000, guid: 0c64ca324cb2b984b8665dd0219c4d2a, type: 2}
 --- !u!65 &8261622740638181314
 BoxCollider:
   m_ObjectHideFlags: 0

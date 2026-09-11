@@ -13,8 +13,8 @@ using UnityEngine;
 public class SnapshotPlayer : MonoBehaviour
 {
     [Header("插值参数")]
-    [Tooltip("缓冲深度（快照帧数）：延迟预算旋钮——越深越抗抖动、画面越滞后")]
-    [SerializeField, Range(1, 10)] private int bufferDepth = 3;
+    [Tooltip("联机参数（Assets/Config/NetConfig.asset）：插值深度是手感主旋钮——单一来源，壳 prefab 不再各自序列化深度")]
+    [SerializeField] private NetConfig netConfig;
 
     [Header("死亡演出")]
     [Tooltip("本壳对应的击杀爆炸 prefab（与 host 原型阵营分色配对：如 Dead Tank→Explosion_Red、Dead Tank 1→Explosion_Orange）。留空 = 无爆炸（子弹/道具壳）")]
@@ -36,7 +36,8 @@ public class SnapshotPlayer : MonoBehaviour
 
     void Awake()
     {
-        buffer.Depth = bufferDepth;
+        // 插值深度从 NetConfig 读（多壳共享一份手感旋钮）；兜底仅供缺配不崩
+        buffer.Depth = netConfig != null ? netConfig.interpBufferDepth : 3;
         localY = transform.position.y;
         // 初始禁画：壳上的 AimLinePreview 默认 enabled 会自己每帧画线（host 端由
         // SetPower 出生时先 Show(false) 压住）。壳出生 power=Normal，ApplyPower 只在
@@ -109,25 +110,11 @@ public class SnapshotPlayer : MonoBehaviour
             transform.position = new Vector3(p.x, localY, p.z);
             transform.rotation = Quaternion.Euler(0f, p.yaw, 0f);
             hasRenderPose = true;
-            DbgLog();
         }
         else if (!hasRenderPose)
         {
             // 首帧无数据：把对象挪到视野外的原点待命，避免闪现在场景默认位置
             transform.position = new Vector3(0f, -100f, 0f);
         }
-    }
-
-    // 临时诊断（阶跃定位后删）：打印插值窗口内部状态
-    private float dbgTimer;
-    void DbgLog()
-    {
-        dbgTimer += Time.unscaledDeltaTime;
-        if (dbgTimer < 0.3f)
-        {
-            return;
-        }
-        dbgTimer = 0f;
-        Debug.Log($"[IP][{name}] span={buffer.DbgSpan:F4} prog={buffer.DbgProgress:F2} queue={buffer.DbgQueueCount} frozen={buffer.DbgFrozen} pos={transform.position:F1}");
     }
 }

@@ -32,6 +32,7 @@ public abstract class TankBase : MonoBehaviour
     protected float rotateSpeed;
     protected float coolDown;
     protected int maxBullets;
+    private float dirtThresholdSqr; // 扬尘阈值的平方（UnitConfig.dirtSpeedThreshold，缓存免每帧开方比较）
     // 移动扬尘：FX_DirtSplatter（looping 常驻型），Start 时实例化为子物体，
     // 由 Move 每帧按实际速度接管 Play/Stop——prefab 的 playOnAwake=1 必须先压住
     [SerializeField] protected GameObject dirtPrefab;
@@ -64,7 +65,7 @@ public abstract class TankBase : MonoBehaviour
         }
         Vector3 v = rb.linearVelocity;
         v.y = 0f;
-        bool rolling = v.sqrMagnitude > 0.25f; // 阈值 0.5 m/s
+        bool rolling = v.sqrMagnitude > dirtThresholdSqr; // 阈值 UnitConfig.dirtSpeedThreshold（与 client 壳 MotionDirt 同源）
         if (rolling && dirt.isStopped)
         {
             dirt.Play();
@@ -172,12 +173,14 @@ public abstract class TankBase : MonoBehaviour
             rotateSpeed = 240f;
             coolDown = 0.5f;
             maxBullets = 5;
+            dirtThresholdSqr = 0.5f * 0.5f;
             return;
         }
         moveSpeed = unitConfig.moveSpeed;
         rotateSpeed = unitConfig.rotateSpeed;
         coolDown = unitConfig.coolDown;
         maxBullets = unitConfig.maxBullets;
+        dirtThresholdSqr = unitConfig.dirtSpeedThreshold * unitConfig.dirtSpeedThreshold;
     }
 
     // dirt 实例化为坦克子物体（随坦克移动/销毁自动跟随）；立即 Stop 压住
