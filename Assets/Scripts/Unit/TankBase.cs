@@ -76,36 +76,43 @@ public abstract class TankBase : MonoBehaviour
         }
     }
 
-    protected void Fire()
+    // 返回"是否真的射出"：内部冷却中 / 弹池空 → false（AI 记账只认真实射击）。
+    // 玩家侧调用忽略返回值，行为不变
+    protected bool Fire()
     {
-        if(isCoolDown)
+        if(!isCoolDown)
         {
-            isCoolDown = false;
-            AudioManager.PlayFire(); // 冷却放行 = 真正开火（玩家/AI 同源）
-            StartCoroutine(CoolDown());
-            if(status == Power.Normal)
-            {
-                bullet = GetPooledBullet();
-                if(bullet != null)
-                {
-                    bullet.transform.position = firePoint.transform.position;
-                    bullet.transform.rotation = firePoint.transform.rotation;
-                    bullet.SetActive(true);
-                }
-            }
-            else if(status == Power.Laser)
-            {
-                Instantiate(laserPrefab, firePoint.position, firePoint.rotation);
-                SetPower(Power.Normal); // 一发消耗：用完即失去 Laser → 预览线关
-            }
-            else if(status == Power.Missile)
-            {
-                GameObject missile = Instantiate(missilePrefab, firePoint.position + firePoint.forward * 0.5f, firePoint.rotation);
-                missile.GetComponent<Missile>().owner = gameObject;
-                SetPower(Power.Normal); // 换武器同样离开 Laser 状态
-            }
+            return false; // 内部冷却中，未射出
         }
-        
+        isCoolDown = false;
+        AudioManager.PlayFire(); // 冷却放行 = 真正开火（玩家/AI 同源）
+        StartCoroutine(CoolDown());
+        if(status == Power.Normal)
+        {
+            bullet = GetPooledBullet();
+            if(bullet == null)
+            {
+                return false; // 弹池空：没射出子弹（音效/冷却已耗，保持原行为）
+            }
+            bullet.transform.position = firePoint.transform.position;
+            bullet.transform.rotation = firePoint.transform.rotation;
+            bullet.SetActive(true);
+            return true;
+        }
+        if(status == Power.Laser)
+        {
+            Instantiate(laserPrefab, firePoint.position, firePoint.rotation);
+            SetPower(Power.Normal); // 一发消耗：用完即失去 Laser → 预览线关
+            return true;
+        }
+        if(status == Power.Missile)
+        {
+            GameObject missile = Instantiate(missilePrefab, firePoint.position + firePoint.forward * 0.5f, firePoint.rotation);
+            missile.GetComponent<Missile>().owner = gameObject;
+            SetPower(Power.Normal); // 换武器同样离开 Laser 状态
+            return true;
+        }
+        return false; // LandMine/Bomb 未实现：不产射弹
     }
     IEnumerator CoolDown()
     {
@@ -133,6 +140,9 @@ public abstract class TankBase : MonoBehaviour
         }
         return null;
     }
+
+    // 弹池是否还有空闲普通弹（AI 撤退判定用：池空 = 弹全在飞，扣扳机也打不出去）
+    protected bool HasSpareBullet => GetPooledBullet() != null;
     protected void Init()
     {
         rb = gameObject.GetComponent<Rigidbody>();

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// TankAI 行为算法参数（决策节流/射击/躲避/卡墙脱困全部集中）。
+// TankAI 行为算法参数（决策节流/射击/撤退/躲避/卡墙脱困全部集中）。
 // 想调 AI 难度：复制一份资产改数值，Enemy.prefab 拖另一份即可，代码零改动
 [CreateAssetMenu(fileName = "AiConfig", menuName = "TankGame/AI Config")]
 public class AiConfig : ScriptableObject
@@ -16,6 +16,10 @@ public class AiConfig : ScriptableObject
     public float fireCooldown = 0.5f;     // 开火冷却（秒）
     public float fireRange = 20f;         // 站桩射击的射程上限，超出改追击
     public float chaseArriveDistance = 4f; // 追击到达判定距离
+
+    [Header("撤退（打带跑）")]
+    public int retreatAfterShots = 2;   // 连续开火达几发后转入撤退
+    public float retreatDuration = 5f;  // 撤退持续（秒）：到点或弹池恢复即回战斗
 
     [Header("威胁躲避")]
     public float threatHighThreshold = 1.5f;  // 命中线离中心低于它 → 穿心（高威胁，移动躲）

@@ -109,7 +109,19 @@ public class LanBeacon : MonoBehaviour
             return;
         }
         sendTimer = 0f;
-        byte[] packet = DiscoveryProtocol.BuildAnnounce(playing, GameConfig.RoomName, GameConfig.PlayerName);
+        // 游戏端口随公告下发：等待态还没监听（0）；游戏态播 NetManager 实际端口——
+        // 它是"优先 7783、被占则 OS 分配"，实际值只有 NetManager 知道。
+        // bind 全部失败（未监听）时不播：房间里"可加入"不能是假的
+        ushort gamePort = 0;
+        if (playing)
+        {
+            if (NetManager.Instance == null || !NetManager.Instance.IsListening)
+            {
+                return;
+            }
+            gamePort = NetManager.Instance.ActualPort;
+        }
+        byte[] packet = DiscoveryProtocol.BuildAnnounce(playing, gamePort, GameConfig.RoomName, GameConfig.PlayerName);
         try
         {
             sendSock.Send(packet, packet.Length, new IPEndPoint(IPAddress.Broadcast, DiscoveryProtocol.Port));

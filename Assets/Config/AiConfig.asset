@@ -19,7 +19,9 @@ MonoBehaviour:
   aimThreshold: 1
   fireCooldown: 0.5
   fireRange: 40
-  chaseArriveDistance: 4
+  chaseArriveDistance: 2
+  retreatAfterShots: 2
+  retreatDuration: 3
   threatHighThreshold: 1.5
   dodgeRotateStep: 5
   threatTimeLimit: 1.2

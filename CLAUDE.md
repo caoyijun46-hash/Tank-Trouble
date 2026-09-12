@@ -7,14 +7,19 @@ Unity 坦克对战原型：随机迷宫地图 + 玩家/AI 坦克对轰（子弹/
 ```
 Assets/Scripts/
 ├── Map/        GridMap(网格/寻路数据)  Pathfinding(A*)  Maze/(迷宫生成)
-│   └── Maze/   MazeData(决策层)  MapSpawner(执行层)  MazeDataTest(验收)
+│   └── Maze/   MazeConfig(参数)  MazeData(决策层)  MapSpawner(执行层)
 ├── Combat/     弹道与弹药域: BallisticConfig/Path + BulletBase + Bullet/Laser/Missile + AimLinePreview
-├── Unit/       单位域: TankBase + Tank/TankAI + Item
-├── Core/       游戏流程: GameManager + ScoreHud/PauseController(UI 总控)
-├── Camera/     相机: FixedMapCamera
+├── Unit/       单位域: TankBase + Tank/TankAI + Item + UnitConfig/AiConfig
+├── Core/       游戏流程: GameManager  GameConfig  RoundConfig
+│   ├── Menu/   MainMenu  OnlineMenu (菜单入口与联机房间菜单)
+│   └── UI/     ScoreHud  PauseController (对局 UI 与面板总控)
+├── Camera/     相机: FixedMapCamera + CameraConfig
 ├── Audio/      音频: AudioManager(全局单例, 见下方音频纪律)
 ├── Particle/   粒子: DestroyAfterDelay 等通用组件
-└── Net/        联机: NetManager(传输/生命周期) + SnapshotProtocol(序列化) + InterpBuffer(插值) + NetSyncObject(同步对象)
+└── Net/        联机: NetManager(传输/生命周期) + NetSyncEntity(实体注册) + ISyncHost(命令契约) + NetConfig
+    ├── Protocol/   纯编解码: Snapshot  Command  MapParams  Entity  Round
+    ├── Discovery/  局域网发现层: DiscoveryProtocol + LanBeacon + LanDiscovery(独立 UdpClient, 不经 UTP)
+    └── Client/     仅 client 侧组件: SnapshotPlayer(壳渲染)  InterpBuffer(插值)  ClientInputSimulator(上行输入)  MotionDirt  SpawnSound
 ```
 
 - 新增脚本先对号入座；只有"它属于哪个域"一条分类轴，基类跟子类同目录，不设 Base 杂物堆。
@@ -41,7 +46,7 @@ Assets/Scripts/
 
 - 决策层（`MazeData`）纯数据 + 纯函数，不碰场景、不依赖时间；`Generate(cols, rows, seed, loopMin, loopMax)` 同 seed 必得同一张图（含补开洞）。
 - 执行层（`MapSpawner`）只负责把决策层数据实例化成 GameObject。
-- 决策层改动用 `MazeDataTest` 的 Console 打印（ToAscii）验收，不必进 Play。
+- 决策层改动用 `MazeData.ToAscii()` 的 Console 打印验收（临时调用一次即可），不必进 Play。
 - 迷宫/网格时序：`GridMap.Awake`(0) 先注册 Instance → `MapSpawner`(ExecutionOrder 10) 建墙并 `SetBounds` → GridMap 每局扫描范围跟随迷宫实际尺寸。
 
 ## 场景纪律
@@ -49,10 +54,10 @@ Assets/Scripts/
 - 助手不直接修改 `.unity` 场景文件；场景接线（挂组件/拖引用/摆物体）一律由用户在 Unity 编辑器完成，助手只给操作步骤。
 - 运行时按需生成的对象（墙/地板）由脚本在 Awake 创建，不进场景序列化。
 
-## 联机纪律（Net 域，阶段 1：主机权威 + 状态同步 + 客户端插值）
+## 联机纪律（Net 域：主机权威 + 快照同步 + 客户端插值 + 局域网发现）
 
 - 客户端不拥有世界状态——它是"快照播放器"：只有插值缓冲，永远渲染主机已确认的过去位置（固有延迟 = 缓冲深度 × 快照间隔）。
-- 快照走不可靠管道（自描述、丢帧由下一条全量纠正）；命令/事件将来走可靠管道——可靠性按数据类型选，不是全局开关。
+- 快照走不可靠管道（自描述、丢帧由下一条全量纠正）；命令/一次性事件走可靠管道——可靠性按数据类型选，不是全局开关。
 - 插值进度按快照窗口时间跨度推进（两端时钟速率一致，无绝对时钟同步）；yaw 等周期量插值必须 LerpAngle。
 - 网络事件一律在主循环内轮询（UTP ScheduleUpdate + PopEvent），禁止阻塞等待。
 - 测试用 ParrelSync 双 Editor：主项目 = Host，clone = Client，回环 127.0.0.1。
@@ -60,6 +65,6 @@ Assets/Scripts/
 
 ## 验证流程
 
-- 改完必须验证：决策层 → MazeDataTest Print；玩法 → 回 Unity Play 跑一局看 Console/行为。
+- 改完必须验证：决策层 → `MazeData.ToAscii()` 打印；玩法 → 回 Unity Play 跑一局看 Console/行为。
 - 迷宫可调参数（格数区间/seed/补开洞比例区间）都在 `MapSpawner` Inspector，改了直接生效。
 - 相机是固定全图正交（FixedMapCamera），每局自动按 GridMap 实际范围取景，参数在 Main Camera 的组件上。

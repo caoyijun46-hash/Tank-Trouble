@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// 坦克 AI：决策层（节流）在"躲避 > 射击 > 追击"间切换，执行层（每帧）按模式驱动 moveInput。
+// 坦克 AI：决策层（节流）在"躲避 > 拾取 > 撤退 > 射击/追击"间切换，执行层（每帧）按模式驱动 moveInput。
 // 与玩家 Tank 对称：玩家注入 InputAction，AI 注入决策结果（moveInput + Fire）
 public class TankAI : TankBase
 {
-    private enum AIAction { Shoot, Chase, GetItem, DodgeMove, DodgeRotate }
+    private enum AIAction { Shoot, Chase, GetItem, Retreat, DodgeMove, DodgeRotate }
 
     // 行为算法参数单一来源（Assets/Config/AiConfig.asset）。
     // 想调 AI 难度：复制资产改数值，Enemy.prefab 换拖一份，代码零改动
@@ -22,6 +22,14 @@ public class TankAI : TankBase
     private Vector2Int? plannedGoalCell; // path 对应的目标格；目标换格才重寻
     private float decideTimer;
     private float cooldownTimer;
+
+    // 撤退（打带跑）：retreatLeft 是"开火 N 发后"的时间锁（递减到 0 解锁）；
+    // 弹池空则是条件锁（HasSpareBullet 恢复即解锁），两者哪个在都算撤退中。
+    // retreatGoalCell 进入撤退时算一次——每决策周期重算会让目标格漂移、
+    // pathIndex 反复归零，坦克原地踏步
+    private float retreatLeft;
+    private int shotsSinceRetreat;
+    private Vector2Int? retreatGoalCell;
 
     private bool threatIsHigh;        // 当前威胁等级（决策结果）
     private Vector3 threatDir;        // 威胁子弹轨迹方向（水平）
@@ -63,6 +71,10 @@ public class TankAI : TankBase
     // 决策层：节流执行，输出"意图"（模式 + 参数）
     void Update()
     {
+        if (retreatLeft > 0f)
+        {
+            retreatLeft -= Time.deltaTime;
+        }
         decideTimer -= Time.deltaTime;
         if (decideTimer <= 0f)
         {
@@ -215,6 +227,24 @@ public class TankAI : TankBase
             return;
         }
 
+        // —— 撤退（打带跑）：优先级在拾取之下、战斗之上。两个触发：
+        //   1) 连续开火达 aiConfig.retreatAfterShots 发 → retreatLeft 计时（节奏锁）；
+        //   2) 空手且普通弹池空（弹全在飞，扣扳机打不出去）→ 条件锁，弹回收即解。
+        // 撤离点 = "后方的某点"：全网格离敌人最远的可走格（躲开战场），进入时算一次
+        if (target != null && IsRetreating())
+        {
+            action = AIAction.Retreat;
+            fireAngle = null;
+            EnsureRetreatPath();
+            return;
+        }
+        if (retreatGoalCell != null)
+        {
+            // 撤退结束（计时到且弹池恢复）：清目标格，本拍落回正常战斗决策
+            retreatGoalCell = null;
+            path = null;
+        }
+
         if (target == null)
         {
             action = AIAction.Shoot;
@@ -247,6 +277,74 @@ public class TankAI : TankBase
             chaseTarget = target;
             EnsureChasePath();
         }
+    }
+
+    // 撤退条件：开火节奏计时未走完，或空手且弹池空（弹全在飞打不出去）。
+    // 持 Laser/Missile 时弹池无关（两种武器不消耗普通弹池），只看节奏锁
+    bool IsRetreating()
+    {
+        return retreatLeft > 0f
+            || (CurrentPower == Power.Normal && !HasSpareBullet);
+    }
+
+    // 撤退路径维护：目标格进入撤退时算一次；被躲避清路径后按需重寻
+    void EnsureRetreatPath()
+    {
+        GridMap grid = GridMap.Instance;
+        if (grid == null)
+        {
+            path = null;
+            return;
+        }
+        if (retreatGoalCell == null)
+        {
+            retreatGoalCell = FindRetreatCell(grid);
+            if (retreatGoalCell == null)
+            {
+                path = null;
+                return;
+            }
+        }
+        // 已在目标格：原地等撤退结束（再规划只会原地打转）
+        if (grid.WorldToCell(transform.position) == retreatGoalCell.Value)
+        {
+            path = null;
+            return;
+        }
+        if (path == null || path.Count == 0 || plannedGoalCell != retreatGoalCell)
+        {
+            PlanPathToCell(retreatGoalCell.Value);
+        }
+    }
+
+    // "后方的某点" = 全网格里离敌人最远的可走格（藏身点）。迷宫就十几×几格，
+    // 进入撤退时全扫一次，代价可忽略；比对用 XZ 距离平方
+    Vector2Int? FindRetreatCell(GridMap grid)
+    {
+        Vector2Int? best = null;
+        float bestSqr = -1f;
+        Vector3 enemy = target.position;
+        for (int y = 0; y < grid.Height; y++)
+        {
+            for (int x = 0; x < grid.Width; x++)
+            {
+                var cell = new Vector2Int(x, y);
+                if (!grid.IsWalkable(cell, aiConfig.unitRadius))
+                {
+                    continue;
+                }
+                Vector3 w = grid.CellToWorld(cell);
+                float dx = w.x - enemy.x;
+                float dz = w.z - enemy.z;
+                float d = dx * dx + dz * dz;
+                if (d > bestSqr)
+                {
+                    bestSqr = d;
+                    best = cell;
+                }
+            }
+        }
+        return best;
     }
 
     // 空手且场上有道具 → 切拾取模式并（按需）规划路径；否则不动动作返回 false。
@@ -402,8 +500,7 @@ public class TankAI : TankBase
         return best >= 0f ? (float?)best : null;
     }
 
-    // 移动路径规划（Chase/GetItem 共用）：寻路到 chaseTarget 所在格，
-    // 起点/终点不可走时找回网格（导弹踩过的坑直接复用）
+    // 移动路径规划（Chase/GetItem 共用）：寻路到 chaseTarget 所在格
     void PlanChasePath()
     {
         GridMap grid = GridMap.Instance;
@@ -412,9 +509,21 @@ public class TankAI : TankBase
             path = null;
             return;
         }
+        PlanPathToCell(grid.WorldToCell(chaseTarget.position));
+    }
+
+    // 路径规划（Chase/GetItem/Retreat 共用）：寻路到目标格，
+    // 起点/终点不可走时找回网格（导弹踩过的坑直接复用）
+    void PlanPathToCell(Vector2Int goal)
+    {
+        GridMap grid = GridMap.Instance;
+        if (grid == null)
+        {
+            path = null;
+            return;
+        }
 
         Vector2Int start = grid.WorldToCell(transform.position);
-        Vector2Int goal = grid.WorldToCell(chaseTarget.position);
 
         if (!grid.IsWalkable(start, aiConfig.unitRadius))
         {
@@ -509,7 +618,8 @@ public class TankAI : TankBase
                 break;
             case AIAction.Chase:
             case AIAction.GetItem:
-                ExecuteChase(); // 战斗追击与拾取共用的移动执行（停判定内部按 action 区分）
+            case AIAction.Retreat:
+                ExecuteChase(); // 追击/拾取/撤退共用的移动执行（停判定内部按 action 区分）
                 break;
             case AIAction.DodgeMove:
                 ExecuteDodgeMove();
@@ -534,8 +644,19 @@ public class TankAI : TankBase
         if (Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, fireAngle.Value)) <= aiConfig.aimThreshold
             && cooldownTimer <= 0f)
         {
-            //Fire();
-            cooldownTimer = aiConfig.fireCooldown;
+            // 以"真的射出弹"为准记账：内部冷却与 AI 冷却可能差一帧，
+            // 空放不计数、下一物理帧自动重试（旧写法空枪也置冷却+计数，撤退时机偏早）
+            if (Fire())
+            {
+                cooldownTimer = aiConfig.fireCooldown;
+                // 打带跑节奏：连续开火达阈值 → 置撤退计时（决策层下一拍切入）
+                shotsSinceRetreat++;
+                if (shotsSinceRetreat >= aiConfig.retreatAfterShots)
+                {
+                    retreatLeft = aiConfig.retreatDuration;
+                    shotsSinceRetreat = 0;
+                }
+            }
         }
     }
 
@@ -572,7 +693,7 @@ public class TankAI : TankBase
     //      直线冲过去必顶墙（这就是注释卡墙检测后看到乱撞的来源）
     void ExecuteChase()
     {
-        if (chaseTarget == null || path == null || path.Count == 0)
+        if (path == null || path.Count == 0)
         {
             moveInput.x = 0f;
             moveInput.y = 0f;
@@ -581,8 +702,9 @@ public class TankAI : TankBase
 
         // 到达判定：Chase 靠近战斗目标就停，等下次决策切射击；
         // GetItem 不停——道具在格中心，必须走完 path（压到 Trigger 才算拾取），
-        // 提前 4 米停会停在车头够不着道具碰撞体的位置
-        if (action != AIAction.GetItem
+        // 提前 4 米停会停在车头够不着道具碰撞体的位置；
+        // Retreat 不停——走到藏身格后站定等计时/弹池解锁
+        if (action == AIAction.Chase && chaseTarget != null
             && Vector3.Distance(transform.position, chaseTarget.position) < aiConfig.chaseArriveDistance)
         {
             moveInput.x = 0f;

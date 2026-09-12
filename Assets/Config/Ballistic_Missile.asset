@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BallisticConfig
   speed: 20
   lifeTime: 10
-  maxBounces: 5
+  maxBounces: 100
+  bulletRadius: 0.3
   turnSpeed: 180
   repathInterval: 0.3
   arriveDistance: 0.6

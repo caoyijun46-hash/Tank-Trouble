@@ -19,6 +19,7 @@ public class LanDiscovery : MonoBehaviour
         public string roomName;
         public string hostName;
         public bool playing;     // false=等待中 true=游戏中
+        public ushort port;      // 游戏实际端口（公告携带；host 还没监听时为 0）
         public float lastSeen;
     }
 
@@ -85,14 +86,15 @@ public class LanDiscovery : MonoBehaviour
                 break;
             }
             if (!DiscoveryProtocol.TryParseAnnounce(data, data.Length,
-                    out bool playing, out string roomName, out string hostName))
+                    out bool playing, out ushort gamePort, out string roomName, out string hostName))
             {
                 continue;
             }
             string ip = remote.Address.ToString();
             if (rooms.TryGetValue(ip, out var old))
             {
-                if (old.playing != playing || old.roomName != roomName || old.hostName != hostName)
+                if (old.playing != playing || old.roomName != roomName || old.hostName != hostName
+                    || old.port != gamePort)
                 {
                     changed = true;
                 }
@@ -107,6 +109,7 @@ public class LanDiscovery : MonoBehaviour
                 roomName = roomName,
                 hostName = hostName,
                 playing = playing,
+                port = gamePort,
                 lastSeen = now,
             };
         }

@@ -8,13 +8,15 @@ using UnityEngine.SceneManagement;
 // 联机菜单总控（挂 Menu 场景）：局域网发现流程的 UI 与状态机。
 //
 //   host 流程：Online → Host（读名字、点亮 LanBeacon 等待广播、显示玩家列表）
-//             → Start（进 Main，NetManager 开始监听 7783）
+//             → Start（进 Main，NetManager 开始监听——优先 7783，被占则由 OS 分配）
 //   client 流程：Online → 房间列表（LanDiscovery 刷新）→ 点条目：
-//             state=游戏中 → 直接进 Client 场景连接
+//             state=游戏中 → 用房间信息里的实际端口直接进 Client 场景连接
 //             state=等待中 → 每秒单播 join 请求（host 列表显示"谁在等"），
 //                            轮询该 host 变"游戏中"后自动进 Client；30s 超时回列表
 //
-// 为什么等待态用"轮询状态"而不是直接连接：host 菜单阶段没有游戏监听（7783 由
+// 端口来源：游戏端口不写死——host 的端口在公告包里下发（DiscoveryProtocol v2），
+// 这里从房间信息取（GameConfig.ServerPort）；手输直连没有房间信息，用默认端口。
+// 为什么等待态用"轮询状态"而不是直接连接：host 菜单阶段没有游戏监听（监听由
 // Main 场景的 NetManager 建立，且场景切换会重建连接）——菜单只负责"预告"，
 // 真正的连接等 host 进游戏后再建立
 public class OnlineMenu : MonoBehaviour
@@ -87,10 +89,10 @@ public class OnlineMenu : MonoBehaviour
         {
             return;
         }
-        // 目标变"游戏中" → 连接
+        // 目标变"游戏中" → 用当前公告里的实际端口连接
         if (discovery.TryGetRoom(waitingIp, out var room) && room.playing)
         {
-            ConnectAndLoad(waitingIp);
+            ConnectAndLoad(waitingIp, room.port);
             return;
         }
         waitTimer += Time.unscaledDeltaTime;
@@ -169,12 +171,13 @@ public class OnlineMenu : MonoBehaviour
         }
     }
 
-    /// <summary>手输 IP 直连（备用入口，可另接一个按钮）</summary>
+    /// <summary>手输 IP 直连（备用入口，可另接一个按钮）。端口 0 = 用场景序列化
+    /// 默认端口——没有房间信息可拿，host 若被占用退到了 OS 分配则此路连不上（可接受）</summary>
     public void JoinManualIp(string ip)
     {
         if (!string.IsNullOrEmpty(ip))
         {
-            ConnectAndLoad(ip);
+            ConnectAndLoad(ip, 0);
         }
     }
 
@@ -219,16 +222,17 @@ public class OnlineMenu : MonoBehaviour
             {
                 string ip = r.ip;
                 bool playing = r.playing;
-                button.onClick.AddListener(() => JoinRoom(ip, playing, button, label));
+                ushort port = r.port;
+                button.onClick.AddListener(() => JoinRoom(ip, playing, port, button, label));
             }
         }
     }
 
-    void JoinRoom(string ip, bool playing, Button button, TMP_Text label)
+    void JoinRoom(string ip, bool playing, ushort port, Button button, TMP_Text label)
     {
         if (playing)
         {
-            ConnectAndLoad(ip); // 游戏中：直接进 Client 场景连接
+            ConnectAndLoad(ip, port); // 游戏中：用公告里的实际端口直接进 Client 场景连接
             return;
         }
         // 等待中：进入等待态，复用被点条目作提示（不新增 UI 元素）
@@ -275,11 +279,12 @@ public class OnlineMenu : MonoBehaviour
         }
     }
 
-    void ConnectAndLoad(string ip)
+    void ConnectAndLoad(string ip, ushort port)
     {
         GameConfig.ServerIp = ip;
+        GameConfig.ServerPort = port; // 0 = 用场景序列化默认端口（手输直连）
         GameConfig.Mode = GameMode.Online;
-        Debug.Log($"[OnlineMenu] 连接 {ip} → {clientScene}");
+        Debug.Log($"[OnlineMenu] 连接 {ip}:{(port == 0 ? "默认端口" : port.ToString())} → {clientScene}");
         SceneManager.LoadScene(clientScene);
     }
 
