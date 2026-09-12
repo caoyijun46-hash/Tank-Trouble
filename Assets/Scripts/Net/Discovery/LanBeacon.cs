@@ -49,9 +49,8 @@ public class LanBeacon : MonoBehaviour
             recvSock.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryProtocol.JoinPort));
             recvSock.Client.Blocking = false;
         }
-        catch (SocketException e)
+        catch (SocketException)
         {
-            Debug.LogError($"[LanBeacon] join 端口 {DiscoveryProtocol.JoinPort} 绑定失败：{e.Message}");
             Cleanup();
             enabled = false;
         }
@@ -96,7 +95,6 @@ public class LanBeacon : MonoBehaviour
                 if (!joined.ContainsKey(ip))
                 {
                     joined[ip] = name;
-                    Debug.Log($"[LanBeacon] 收到加入请求：{ip}（{name}）");
                     PlayerJoined?.Invoke(ip, name);
                 }
             }

@@ -98,7 +98,6 @@ public class OnlineMenu : MonoBehaviour
         waitTimer += Time.unscaledDeltaTime;
         if (waitTimer > WaitTimeout)
         {
-            Debug.Log("[OnlineMenu] 等待房主开始超时，回到房间列表");
             ExitWaiting();
             RefreshRooms();
             return;
@@ -284,7 +283,6 @@ public class OnlineMenu : MonoBehaviour
         GameConfig.ServerIp = ip;
         GameConfig.ServerPort = port; // 0 = 用场景序列化默认端口（手输直连）
         GameConfig.Mode = GameMode.Online;
-        Debug.Log($"[OnlineMenu] 连接 {ip}:{(port == 0 ? "默认端口" : port.ToString())} → {clientScene}");
         SceneManager.LoadScene(clientScene);
     }
 
@@ -304,9 +302,9 @@ public class OnlineMenu : MonoBehaviour
             joinSock.Send(packet, packet.Length,
                 new IPEndPoint(IPAddress.Parse(waitingIp), DiscoveryProtocol.JoinPort));
         }
-        catch (SocketException e)
+        catch (SocketException)
         {
-            Debug.LogWarning($"[OnlineMenu] join 发送失败（{waitingIp}）：{e.Message}");
+            // 发送失败静默：每秒重发兜底（UDP 瞬时失败容忍）
         }
     }
 

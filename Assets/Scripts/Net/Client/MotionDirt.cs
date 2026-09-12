@@ -28,7 +28,6 @@ public class MotionDirt : MonoBehaviour
     {
         if (dirtPrefab == null)
         {
-            Debug.LogWarning($"[Dirt][{name}] 未拖 dirtPrefab——不喷尘是配置问题", this);
             return;
         }
         dirt = Instantiate(dirtPrefab, transform).GetComponent<ParticleSystem>();

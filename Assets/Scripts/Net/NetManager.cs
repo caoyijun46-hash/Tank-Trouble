@@ -25,8 +25,6 @@ public enum NetRole { Host, Client }
 // MinimalBroadcast.cs 的已验证写法（NetworkDriver.Create() 无参 / 初始化在
 // Start / Accept while 循环 + NativeList 存连接 / Client PopEvent 循环 /
 // BeginSend 三参+错误码判断+EndSend），不再引入它没有的任何模式。
-// 唯一有意的偏离：心跳计时放在每帧调用路径上累计（照抄会把 logTimer 放进
-// tick 段内——历史 bug：非 tick 帧不累计，18 秒才打印一次）。
 //
 // 引擎模型（Unity Transport，每帧轮询）：driver.ScheduleUpdate().Complete()
 // 把底层收发包推进完，然后 Accept/PopEvent 取事件——包到达不打断游戏（非阻塞轮询）
@@ -82,10 +80,7 @@ public class NetManager : MonoBehaviour
     private NetworkConnection connection;              // Client：到主机的连接
     private bool connected;                            // Client：握手完成后才允许发命令（可靠发送依赖连接状态机）
     private float tickTimer;                           // 距上次广播的累计时间
-    private float logTimer;                            // 心跳日志累计时间
-    private uint seq;                                  // 主机发帧计数（进快照载荷，调试/统计用）
-    private int sentCount;                             // Host：本心跳周期内成功广播包数
-    private int recvCount;                             // Client：本心跳周期内收到快照数
+    private uint seq;                                  // 主机发帧计数（进快照载荷）
     private MapParamsData? latestMapParams;            // Host：最近一次 MapGenerated 的参数缓存（accept 补发用）
     private MapSpawner clientMapSpawner;               // Client：收参数后重建迷宫（惰性查找缓存）
 
@@ -127,10 +122,6 @@ public class NetManager : MonoBehaviour
         // 联机参数缓存进本地字段（tick/超时是每帧路径，不查资产）；兜底防缺配崩溃
         snapshotInterval = netConfig != null ? netConfig.snapshotInterval : 0.03f;
         shellTimeout = netConfig != null ? netConfig.shellTimeout : 3f;
-        if (netConfig == null)
-        {
-            Debug.LogError("[Net] 缺 NetConfig 引用（拖 Assets/Config/NetConfig.asset），当前用兜底参数运行", this);
-        }
         driver = NetworkDriver.Create();
         // 可靠管道：命令事件（Fire）与实体生命周期（Spawn/Despawn）走它
         reliable = driver.CreatePipeline(typeof(ReliableSequencedPipelineStage));
@@ -144,19 +135,16 @@ public class NetManager : MonoBehaviour
             // 失败后重试安全：UTP 失败时已关 socket 且 Bound 保持 false，可再 Bind
             if (driver.Bind(NetworkEndpoint.AnyIpv4.WithPort(port)) != 0)
             {
-                Debug.LogWarning($"[Net] 端口 {port} 被占用，改用系统分配端口");
                 if (driver.Bind(NetworkEndpoint.AnyIpv4.WithPort(0)) != 0)
                 {
                     // 偏好端口与临时端口都拿不到（socket 耗尽等）：本机无法开房。
                     // IsListening 保持 false → LanBeacon 停播，房间不会"假出现"
-                    Debug.LogError("[Net] Bind 失败：本机无法开房（端口占用且系统分配不可用）");
                     return;
                 }
             }
             driver.Listen();
             IsListening = true;
             ActualPort = driver.GetLocalEndpoint().Port;
-            Debug.Log($"[Net] 主机监听 :{ActualPort}");
         }
         else
         {
@@ -173,7 +161,6 @@ public class NetManager : MonoBehaviour
                 port = GameConfig.ServerPort;
             }
             connection = driver.Connect(NetworkEndpoint.Parse(serverIp, port));
-            Debug.Log($"[Net] 客户端连接 {serverIp}:{port}");
         }
     }
 
@@ -229,7 +216,6 @@ public class NetManager : MonoBehaviour
         while ((c = driver.Accept()) != default)
         {
             serverConns.Add(c);
-            Debug.Log($"[Net] 客户端接入：{c}");
             // 补发当前迷宫参数：client 可能在本局生成之后才连上（首局 Awake 生成
             // 早于 driver 创建，当时广播不出去）——同构参数不能靠"等下一帧快照纠正"
             BroadcastMapParams();
@@ -263,7 +249,6 @@ public class NetManager : MonoBehaviour
                 }
                 else if (evt == NetworkEvent.Type.Disconnect)
                 {
-                    Debug.Log($"[Net] 客户端断开：{serverConns[i]}");
                     serverConns[i] = default; // 正常断开能收尾；进程强退仍会留幽灵（见交接文档）
                 }
             }
@@ -303,15 +288,11 @@ public class NetManager : MonoBehaviour
                                 entities[e].PowerByte);
                         }
                         driver.EndSend(w);
-                        sentCount++;
                     }
                 }
             }
             // 注册表空（玩家/AI 出生前、清场间隙）：本 tick 跳过发送（tick 节奏照常）
         }
-
-        // 心跳：必须放每帧路径上累计（不能在 tick 段内——非 tick 帧不累计会失真）
-        LogHeartbeat();
     }
 
     // Host：上行命令分发。命令已由协议层完成解析，喂给当前联机化身执行——
@@ -330,8 +311,6 @@ public class NetManager : MonoBehaviour
     public void RegisterRemoteAvatar(ISyncHost tank)
     {
         avatar = tank;
-        string name = tank is MonoBehaviour mb ? mb.name : "非组件化身";
-        Debug.Log($"[Net][Host] 联机化身注册：{name}");
     }
 
     // ---------- Host：迷宫参数广播（迷宫同构） ----------
@@ -359,7 +338,6 @@ public class NetManager : MonoBehaviour
             return;
         }
         var p = latestMapParams.Value;
-        Debug.Log($"[Net][Host] 迷宫广播：{p.cols}x{p.rows} seed={p.seed}");
         const int payloadSize = 21;
         for (int i = 0; i < serverConns.Length; i++)
         {
@@ -407,7 +385,6 @@ public class NetManager : MonoBehaviour
                 driver.EndSend(w);
             }
         }
-        Debug.Log($"[Net][Host] RoundEnd：胜者 {winner}，比分 {s1}:{s2}，机位 {(hasCamPoint ? $"({camX:F0},{camZ:F0})" : "全图")}");
     }
 
     public void HostSendRoundStart(int s1, int s2)
@@ -429,7 +406,6 @@ public class NetManager : MonoBehaviour
                 driver.EndSend(w);
             }
         }
-        Debug.Log($"[Net][Host] RoundStart：比分 {s1}:{s2}");
     }
 
     public void HostSendPause(bool paused)
@@ -451,7 +427,6 @@ public class NetManager : MonoBehaviour
                 driver.EndSend(w);
             }
         }
-        Debug.Log($"[Net][Host] 暂停广播：{paused}");
     }
 
     // host 结束会话（回主菜单前调用）：client 收到立即回菜单。
@@ -476,7 +451,6 @@ public class NetManager : MonoBehaviour
                 driver.EndSend(w);
             }
         }
-        Debug.Log("[Net][Host] 会话结束广播");
     }
 
     // ---------- Host：实体注册表（Spawn/Despawn + 采集源） ----------
@@ -492,13 +466,11 @@ public class NetManager : MonoBehaviour
         }
         if (entities.Contains(e))
         {
-            Debug.LogWarning($"[Net][Host] 实体重复注册：{e.name}（OnEnable/OnDisable 应配对）", e);
             return false;
         }
         byte? id = AllocId();
         if (id == null)
         {
-            Debug.LogError($"[Net][Host] 实体 id 池耗尽（>255 活体），{e.name} 不进同步", e);
             return false;
         }
         e.SyncId = id.Value;
@@ -549,7 +521,6 @@ public class NetManager : MonoBehaviour
         {
             SendSpawnTo(serverConns[i], e);
         }
-        Debug.Log($"[Net][Host] 实体出生：id={e.SyncId} type={e.TypeKey} {e.name}（表内 {entities.Count}）");
     }
 
     void BroadcastDespawn(byte id, byte reason)
@@ -572,7 +543,6 @@ public class NetManager : MonoBehaviour
                 driver.EndSend(w);
             }
         }
-        Debug.Log($"[Net][Host] 实体销毁：id={id} reason={reason}（表内 {entities.Count}）");
     }
 
     // 单条连接的 Spawn 发送（BroadcastSpawn 与 accept 补发共用）
@@ -591,28 +561,6 @@ public class NetManager : MonoBehaviour
         }
     }
 
-    // 心跳：每秒报一次收发计数（联调定位用：计数不动 = 断在哪一段一目了然）。
-    // 由 Host/Client 的每帧路径调用，内部按真实时间累计，正好每秒打印一次
-    void LogHeartbeat()
-    {
-        logTimer += Time.unscaledDeltaTime;
-        if (logTimer < 1f)
-        {
-            return;
-        }
-        logTimer = 0f;
-        if (IsHost)
-        {
-            Debug.Log($"[Net][Host] 每秒广播 {sentCount} 帧（实体 {entities.Count}，已接入 {serverConns.Length} 客户端）");
-            sentCount = 0;
-        }
-        else
-        {
-            Debug.Log($"[Net][Client] 每秒收到 {recvCount} 帧（壳槽 {slots.Count}）");
-            recvCount = 0;
-        }
-    }
-
     // ---------- Client：接收快照 → 推给同步对象 ----------
 
     void ClientUpdate()
@@ -627,7 +575,6 @@ public class NetManager : MonoBehaviour
             if (cmd == NetworkEvent.Type.Connect)
             {
                 connected = true;
-                Debug.Log("[Net] 已连接主机");
             }
             else if (cmd == NetworkEvent.Type.Data)
             {
@@ -690,7 +637,6 @@ public class NetManager : MonoBehaviour
                     case RoundProtocol.TypeSessionEnd:
                         if (RoundProtocol.TryReadSessionEnd(stream, out _))
                         {
-                            Debug.Log("[Net][Client] host 结束会话 → 回主菜单");
                             SessionEnded?.Invoke();
                         }
                         break;
@@ -699,12 +645,10 @@ public class NetManager : MonoBehaviour
             else if (cmd == NetworkEvent.Type.Disconnect)
             {
                 connected = false;
-                Debug.Log("[Net] 与主机断开（意外断线兜底：同样视为会话结束）");
                 connection = default;
                 SessionEnded?.Invoke(); // 兜底：host 强退时 client 也回菜单，不卡在冻结画面
             }
         }
-        LogHeartbeat(); // 每帧路径（连接建立后）
         PruneShells();  // 超时兜底必须每帧跑（事件循环无事件时也要清残壳）
     }
 
@@ -721,11 +665,9 @@ public class NetManager : MonoBehaviour
         }
         if (clientMapSpawner == null)
         {
-            Debug.LogWarning("[Net][Client] 收到迷宫参数但场景没有 MapSpawner，丢弃（对账看不到重建日志即此因）", this);
             return;
         }
         clientMapSpawner.Generate(p.cols, p.rows, p.seed, p.loopMin, p.loopMax);
-        Debug.Log($"[Net][Client] 迷宫同构：{p.cols}x{p.rows} seed={p.seed}");
     }
 
     // ---------- Client：实体帧分发 / 壳生成与销毁 ----------
@@ -739,7 +681,6 @@ public class NetManager : MonoBehaviour
         {
             return;
         }
-        recvCount++;
         for (int i = 0; i < count; i++)
         {
             if (!SnapshotProtocol.TryReadEntity(ref stream, out var id, out var x, out var z, out var yaw, out var power))
@@ -761,12 +702,10 @@ public class NetManager : MonoBehaviour
     {
         if (slots.ContainsKey(id))
         {
-            Debug.LogWarning($"[Net][Client] 重复 Spawn：id={id}（host 不该对活体重复分配），丢弃");
             return;
         }
         if (shellPrefabs == null || typeKey >= shellPrefabs.Length || shellPrefabs[typeKey] == null)
         {
-            Debug.LogWarning($"[Net][Client] Spawn id={id} 的 typeKey={typeKey} 无对应壳 prefab（shellPrefabs 没拖齐？），丢弃");
             return;
         }
         SnapshotPlayer shell = Instantiate(shellPrefabs[typeKey],
@@ -774,7 +713,6 @@ public class NetManager : MonoBehaviour
         shell.Prime(x, z, yaw);
         shell.Bind(id);
         slots[id] = new ShellSlot { shell = shell, lastSeen = Time.unscaledTime };
-        Debug.Log($"[Net][Client] Spawn：id={id} type={typeKey}（壳槽 {slots.Count}）");
     }
 
     void HandleDespawn(byte id, byte reason)
@@ -801,7 +739,6 @@ public class NetManager : MonoBehaviour
             AudioManager.PlayCrash(); // client 端爆炸音（静态判空：无 AudioManager 静默）
         }
         Destroy(slot.shell.gameObject);
-        Debug.Log($"[Net][Client] Despawn：id={id} reason={reason}（壳槽 {slots.Count}）");
     }
 
     // 超时兜底：壳长时间无快照（断线/despawn 丢失的极端）则删——despawn 走可靠

@@ -103,13 +103,11 @@ public class GameManager : MonoBehaviour
         }
         if (mapSpawner == null || mapSpawner.Data == null)
         {
-            Debug.LogError("GameManager: 找不到 MapSpawner（迷宫数据），无法开局", this);
             enabled = false;
             return;
         }
         if (roundConfig == null)
         {
-            Debug.LogError("GameManager: 缺 RoundConfig 引用（拖 Assets/Config/RoundConfig.asset）", this);
             enabled = false;
             return;
         }
@@ -124,7 +122,6 @@ public class GameManager : MonoBehaviour
         state = RoundState.Playing;
         // 联机：开局广播当前比分（0:0），client 对账用。判空：单机静默
         NetManager.Instance?.HostSendRoundStart(0, 0);
-        Debug.Log($"—— [{ModeLabel}] 第 {roundNumber} 局开始（迷宫 {maze.cols}×{maze.rows}）——");
     }
 
     void Update()
@@ -171,12 +168,10 @@ public class GameManager : MonoBehaviour
         {
             winnerTeam = lastAliveTeam;
             AwardRound(winnerTeam);
-            Debug.Log($"—— 第 {roundNumber} 局结束：阵营 {TeamName(lastAliveTeam)} 获胜（比分 {ScoreLine()}）——");
         }
         else
         {
             winnerTeam = -1;
-            Debug.Log($"—— 第 {roundNumber} 局结束：同归于尽，平局（比分 {ScoreLine()}）——");
         }
 
         // 慢放演出：timeScale 降到 roundConfig.slowMotion——子弹缓飞、AI 慢动、爆炸烟在
@@ -249,24 +244,6 @@ public class GameManager : MonoBehaviour
 
     public int GetScore(int team) => scores.TryGetValue(team, out int s) ? s : 0;
 
-    string ScoreLine() => $"{GetScore(TeamOne)} : {GetScore(TeamTwo)}";
-
-    // 显示名与对应 UXML 记分板的槽位名保持一致（ScoreHud 同样从模板解析）：
-    // 左槽恒为"玩家1"；右槽 1vAI = MainAI.uxml 里的"莱很卡"，双人 = MainDouble.uxml 的"玩家2"
-    string TeamName(int team)
-    {
-        if (team == TeamOne)
-        {
-            return "玩家1";
-        }
-        if (team == TeamTwo)
-        {
-            // 右槽恒为"人控对手"：双人/联机 = 玩家2，只有 1vAI 是 AI 角色
-            return GameConfig.Mode == GameMode.VsAI ? "莱很卡" : "玩家2";
-        }
-        return $"阵营 {team}";
-    }
-
     // ---------- 自动重开 ----------
 
     // 暂停面板"重新开始"：整场重置——比分清零、回到第 1 局、立即重开。
@@ -318,7 +295,6 @@ public class GameManager : MonoBehaviour
         state = RoundState.Playing;
         // 联机：新局广播当前比分（跨局累计对账）。判空：单机静默
         NetManager.Instance?.HostSendRoundStart(GetScore(TeamOne), GetScore(TeamTwo));
-        Debug.Log($"—— [{ModeLabel}] 第 {roundNumber} 局开始（迷宫 {maze.cols}×{maze.rows}）——");
     }
 
     // ---------- 参与者生成 ----------
@@ -348,7 +324,6 @@ public class GameManager : MonoBehaviour
         int opponentCount = doubleMode ? 1 : roundConfig.aiCount;
         if (doubleMode && player2Prefab == null)
         {
-            Debug.LogWarning("GameManager: 双人模式缺 player2Prefab，退回 1vAI", this);
             opponentPrefab = aiPrefab;
             opponentCount = roundConfig.aiCount;
         }
@@ -359,8 +334,6 @@ public class GameManager : MonoBehaviour
             SpawnParticipant(opponentPrefab, TeamTwo);
         }
     }
-
-    string ModeLabel => GameConfig.Mode == GameMode.Double ? "双人" : "1vAI";
 
     // 单台坦克落到随机空房间中心，yaw 随机，并登记进 roster。返回生成对象
     // （联机分支要拿它标记化身；其余调用方忽略返回值）
@@ -373,7 +346,6 @@ public class GameManager : MonoBehaviour
         Vector2Int? cell = PickFreeMazeCell(tankCells);
         if (cell == null)
         {
-            Debug.LogWarning($"GameManager: 没有空房间可用，跳过 {prefab.name}", this);
             return null;
         }
         tankCells.Add(cell.Value);

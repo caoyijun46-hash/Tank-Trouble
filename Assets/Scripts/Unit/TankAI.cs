@@ -62,7 +62,6 @@ public class TankAI : TankBase
         lastPos = transform.position;
         if (aiConfig == null)
         {
-            Debug.LogError($"{name}: 缺 AiConfig 引用（Enemy prefab 组件上拖 Assets/Config/AiConfig.asset）", this);
             enabled = false;
             return;
         }

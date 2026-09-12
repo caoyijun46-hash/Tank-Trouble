@@ -65,7 +65,6 @@ public class ScoreHud : MonoBehaviour
         activePanel = panel.GetComponent<PanelRenderer>();
         if (activePanel == null)
         {
-            Debug.LogError($"ScoreHud: {panel.name} 上没有 PanelRenderer", this);
             return;
         }
         activePanel.RegisterUIReloadCallback(OnUIReload);

@@ -48,9 +48,8 @@ public class LanDiscovery : MonoBehaviour
             sock.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryProtocol.Port));
             sock.Client.Blocking = false;
         }
-        catch (SocketException e)
+        catch (SocketException)
         {
-            Debug.LogError($"[LanDiscovery] 发现端口 {DiscoveryProtocol.Port} 绑定失败：{e.Message}");
             sock = null;
             enabled = false;
         }

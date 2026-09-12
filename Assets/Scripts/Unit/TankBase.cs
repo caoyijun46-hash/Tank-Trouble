@@ -178,7 +178,6 @@ public abstract class TankBase : MonoBehaviour
     {
         if (unitConfig == null)
         {
-            Debug.LogError($"{name}: 缺 UnitConfig 引用（Tank/Tank 1/Enemy prefab 组件上拖 Assets/Config/UnitConfig.asset）", this);
             moveSpeed = 20f;   // 兜底常量仅防缺配崩溃，不是第二配置源
             rotateSpeed = 240f;
             coolDown = 0.5f;

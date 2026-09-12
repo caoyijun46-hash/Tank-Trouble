@@ -48,7 +48,6 @@ public class MapSpawner : MonoBehaviour
     {
         if (wallPrefab == null)
         {
-            Debug.LogError("MapSpawner: wallPrefab 未赋值", this);
             return;
         }
         RegenerateRandom(); // 首次生成走同一入口（无旧墙 → 网格同帧重建）
@@ -59,7 +58,6 @@ public class MapSpawner : MonoBehaviour
     {
         if (mazeConfig == null)
         {
-            Debug.LogError("MapSpawner: 缺 MazeConfig 引用（拖 Assets/Config/MazeConfig.asset）", this);
             return;
         }
         // 每局在可调范围内随机行列数；Random.Range(int) 上限不含 → +1
