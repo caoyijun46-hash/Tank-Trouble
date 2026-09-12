@@ -13,10 +13,6 @@ public static class GameConfig
     /// <summary>client 要连的 host IP：菜单里从发现列表/手输得到。空 = 用场景 Inspector 默认值</summary>
     public static string ServerIp;
 
-    /// <summary>client 要连的 host 游戏端口：从房间信息（公告携带）得到。0 = 用场景 Inspector
-    /// 默认值（手输直连）。host 端口"优先 7783、被占则 OS 分配"，不能写死</summary>
-    public static ushort ServerPort;
-
     /// <summary>房间名（host 在发现广播里带上，client 列表显示）</summary>
     public static string RoomName;
 

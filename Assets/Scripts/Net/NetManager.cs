@@ -66,14 +66,6 @@ public class NetManager : MonoBehaviour
 
     public bool IsHost => role == NetRole.Host;
 
-    /// <summary>Host：游戏端口是否已监听成功。bind 双档（偏好端口→OS 分配）都失败时
-    /// 保持 false——LanBeacon 据此停播，不让房间"假出现"</summary>
-    public bool IsListening { get; private set; }
-
-    /// <summary>Host：实际游戏端口（偏好端口或 OS 分配的临时端口）。公告包携带它，
-    /// client 从房间信息取；只在 IsListening 后有效</summary>
-    public ushort ActualPort { get; private set; }
-
     private NetworkDriver driver;
     private NetworkPipeline reliable;                  // 可靠管道：事件类上行命令（Fire）专用
     private NativeList<NetworkConnection> serverConns; // Host：所有已接入客户端（不设单连接槽）
@@ -129,36 +121,22 @@ public class NetManager : MonoBehaviour
         {
             // 先建连接列表再 bind：bind 失败（端口被占）也要能安全走完生命周期
             serverConns = new NativeList<NetworkConnection>(4, Allocator.Persistent);
-            // 双档绑定：偏好端口（场景序列化，默认 7783——netstat 好认、编辑器直连
-            // 调试可用、手输直连有默认端口）失败 → 端口 0 让 OS 从临时端口范围分配
-            // （相当于几千大的天然"端口池"，冲突基本消除）。
-            // 失败后重试安全：UTP 失败时已关 socket 且 Bound 保持 false，可再 Bind
+            // 固定端口（场景序列化 7783）：被占则本机开不了房（静默失败）。
+            // 端口双档 / 公告携带实际端口方案已回退——回 9/11 行为做联机复测
             if (driver.Bind(NetworkEndpoint.AnyIpv4.WithPort(port)) != 0)
             {
-                if (driver.Bind(NetworkEndpoint.AnyIpv4.WithPort(0)) != 0)
-                {
-                    // 偏好端口与临时端口都拿不到（socket 耗尽等）：本机无法开房。
-                    // IsListening 保持 false → LanBeacon 停播，房间不会"假出现"
-                    return;
-                }
+                return;
             }
             driver.Listen();
-            IsListening = true;
-            ActualPort = driver.GetLocalEndpoint().Port;
         }
         else
         {
             // 客户端不 bind——内核自动分配临时端口，握手包带源端口出发。
-            // 菜单联机流程会写 GameConfig.ServerIp / ServerPort（IP 与端口都来自
-            // 发现公告——host 端口被占时会退到 OS 分配，写死端口连不上）；
-            // 空/0 = 场景序列化默认值，仅直开调试与手输直连用
+            // 菜单联机流程（局域网发现/手输）会写 GameConfig.ServerIp：
+            // 非空则覆盖 Inspector 默认值（默认只作直开调试用）
             if (!string.IsNullOrEmpty(GameConfig.ServerIp))
             {
                 serverIp = GameConfig.ServerIp;
-            }
-            if (GameConfig.ServerPort != 0)
-            {
-                port = GameConfig.ServerPort;
             }
             connection = driver.Connect(NetworkEndpoint.Parse(serverIp, port));
         }

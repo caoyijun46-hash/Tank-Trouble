@@ -6,12 +6,10 @@ using System.Text;
 // 两种包（全部小端字节，名字 UTF-8，≤32 字节，超长截断）：
 //   公告 Announce（host 每秒广播 → 255.255.255.255:7781）：
 //     magic(4 "tklr") + ver(1) + type(1=0) + state(1: 0=等待中 1=游戏中)
-//     + gamePort(2) + roomLen(1) + roomName + playerLen(1) + playerName
+//     + roomLen(1) + roomName + playerLen(1) + playerName
 //   加入请求 Join（client 单播 → host:7782，等待房主开始时每秒重发）：
 //     magic(4) + ver(1) + type(1=1) + nameLen(1) + playerName
 //
-// v2（本版）：公告携带游戏实际端口——host 端口"优先 7783、被占由 OS 分配"，
-// 客户端不能写死端口，必须从公告取（等待态 = 0，还没监听）。
 // 读端防御：长度不足 / magic 不符 / 版本不符 / 未知 type / 名字长度越界 → false 丢弃。
 // 这里用 System.BitConverter 手拼字节：方法不跨调用共享游标，不存在 UTP
 // DataStreamReader 的 ref 陷阱；所有解析都在单函数内完成
@@ -23,7 +21,7 @@ public static class DiscoveryProtocol
     // 不确定——join 可能被不含该逻辑的 socket 抢收。端口分离后每端口单 socket，
     // 单播必达（同机双 Editor 测试与真机行为一致）
     public const int JoinPort = 7782;
-    public const byte Ver = 2;             // v2：公告带 gamePort 字段
+    public const byte Ver = 1;
     public const byte TypeAnnounce = 0;
     public const byte TypeJoin = 1;
     public const int MaxNameBytes = 32;    // 名字字节上限（截断保护）
@@ -32,18 +30,16 @@ public static class DiscoveryProtocol
 
     // ---------- 公告 ----------
 
-    public static byte[] BuildAnnounce(bool playing, ushort gamePort, string roomName, string playerName)
+    public static byte[] BuildAnnounce(bool playing, string roomName, string playerName)
     {
         byte[] room = EncodeName(roomName);
         byte[] player = EncodeName(playerName);
-        var buf = new byte[10 + room.Length + 1 + player.Length];
+        var buf = new byte[8 + room.Length + 1 + player.Length];
         int i = 0;
         WriteMagic(buf, ref i);
         buf[i++] = Ver;
         buf[i++] = TypeAnnounce;
         buf[i++] = playing ? (byte)1 : (byte)0;
-        System.BitConverter.GetBytes(gamePort).CopyTo(buf, i);
-        i += 2;
         buf[i++] = (byte)room.Length;
         room.CopyTo(buf, i);
         i += room.Length;
@@ -53,19 +49,16 @@ public static class DiscoveryProtocol
     }
 
     public static bool TryParseAnnounce(byte[] data, int len,
-        out bool playing, out ushort gamePort, out string roomName, out string playerName)
+        out bool playing, out string roomName, out string playerName)
     {
         playing = false;
-        gamePort = 0;
         roomName = playerName = "";
-        if (len < 11 || !HasMagic(data, len) || data[4] != Ver || data[5] != TypeAnnounce)
+        if (len < 8 || !HasMagic(data, len) || data[4] != Ver || data[5] != TypeAnnounce)
         {
             return false;
         }
         int i = 6;
         playing = data[i++] != 0;
-        gamePort = System.BitConverter.ToUInt16(data, i);
-        i += 2;
         if (!TryReadName(data, len, ref i, out roomName))
         {
             return false;

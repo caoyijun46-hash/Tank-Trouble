@@ -41,8 +41,11 @@ public class AimLinePreview : MonoBehaviour
         PathResult result = BallisticPath.Simulate(
             firePoint.position, dir, config.maxBounces, config.MaxDistance, obstacleMask,
             reuse: null, radius: config.bulletRadius);
-        line.startWidth = config.bulletRadius * 2f;
-        line.endWidth = config.bulletRadius * 2f;
+        // 线宽与碰撞半径解耦：radius=0（如激光点光束）时给最小可见宽度——
+        // 否则线宽为 0，预览线看起来"消失"（Ballistic_Laser.bulletRadius=0 的坑）
+        float width = Mathf.Max(config.bulletRadius * 2f, 0.1f);
+        line.startWidth = width;
+        line.endWidth = width;
         line.positionCount = result.points.Count;
         for (int i = 0; i < result.points.Count; i++)
         {
