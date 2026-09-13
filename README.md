@@ -2,6 +2,16 @@
 
 Unity 随机迷宫坦克对战原型：单机 AI / 本地双人 / 局域网 1v1（主机权威联机）。
 
+**演示视频（bilibili）**：[坦克动荡 · 局域网联机演示](https://www.bilibili.com/video/BV1rnYv6HECh/)
+
+**下载（Windows x64）**：[Releases · 最新版本](https://github.com/caoyijun46-hash/Tank-Trouble/releases/latest)
+
+## 截图
+
+| 人机对战 | 同屏双人 | 主菜单 |
+| :---: | :---: | :---: |
+| ![人机对战](ScreenShots/人机.png) | ![同屏双人](ScreenShots/双人.png) | ![主菜单](ScreenShots/首页.png) |
+
 ## 玩法
 
 - 每局随机生成迷宫（格数、seed、补开洞比例可配），坦克在迷宫中互射

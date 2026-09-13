@@ -7,6 +7,7 @@
 # Build output (typo'd folder name as used locally)
 Bulid/
 *.zip
+*.mp4
 [Ll]ogs/
 [Uu]ser[Ss]ettings/
 MemoryCaptures/
