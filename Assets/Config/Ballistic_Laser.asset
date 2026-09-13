@@ -15,7 +15,7 @@ MonoBehaviour:
   speed: 160
   lifeTime: 5
   maxBounces: 5
-  bulletRadius: 0
+  bulletRadius: 0.1
   turnSpeed: 360
   repathInterval: 0.3
   arriveDistance: 0.6
